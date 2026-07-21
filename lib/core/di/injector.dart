@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 
 import '../config/app_config.dart';
 import '../data/local_store.dart';
+import '../network/api_client.dart';
 import '../repositories/assistant_repository.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/body_scan_repository.dart';
@@ -19,6 +20,13 @@ final GetIt sl = GetIt.instance;
 Future<void> setupInjector() async {
   final localStore = await LocalStore.create();
   sl.registerSingleton<LocalStore>(localStore);
+  sl.registerLazySingleton<ApiClient>(() => ApiClient());
+
+  // Body scan has a real backend, so it opts out of the global mock flag on its
+  // own. Flipping AppConfig.useRealBodyScan to false restores the offline flow.
+  sl.registerLazySingleton<BodyScanRepository>(
+    () => AppConfig.useRealBodyScan ? ApiBodyScanRepository(sl()) : MockBodyScanRepository(),
+  );
 
   if (AppConfig.useMockData) {
     sl.registerLazySingleton<CatalogRepository>(() => MockCatalogRepository());
@@ -27,7 +35,6 @@ Future<void> setupInjector() async {
     sl.registerLazySingleton<WishlistRepository>(() => LocalWishlistRepository(sl()));
     sl.registerLazySingleton<OrderRepository>(() => MockOrderRepository());
     sl.registerLazySingleton<NotificationRepository>(() => MockNotificationRepository());
-    sl.registerLazySingleton<BodyScanRepository>(() => MockBodyScanRepository());
     sl.registerLazySingleton<TryOnRepository>(() => MockTryOnRepository());
     sl.registerLazySingleton<AssistantRepository>(() => MockAssistantRepository());
   } else {

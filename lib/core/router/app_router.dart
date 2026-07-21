@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/otp_screen.dart';
 import '../../features/auth/view/register_screen.dart';
+import '../../features/body_scan/models/scan_input.dart';
 import '../../features/body_scan/view/scan_camera_screen.dart';
 import '../../features/body_scan/view/scan_intro_screen.dart';
 import '../../features/body_scan/view/scan_result_screen.dart';
@@ -46,8 +47,19 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: Routes.otp, builder: (_, __) => const OtpScreen()),
 
     GoRoute(path: Routes.scanIntro, builder: (_, __) => const ScanIntroScreen()),
-    GoRoute(path: Routes.scanCamera, builder: (_, __) => const ScanCameraScreen()),
-    GoRoute(path: Routes.scanResult, builder: (_, __) => const ScanResultScreen()),
+    // Both scan steps carry a ScanInput in `extra`. A deep link or a hot
+    // restart lands here with extra == null, so redirect back to the intro
+    // rather than crashing on the cast.
+    GoRoute(
+      path: Routes.scanCamera,
+      redirect: (_, state) => state.extra is ScanInput ? null : Routes.scanIntro,
+      builder: (_, state) => ScanCameraScreen(input: state.extra as ScanInput),
+    ),
+    GoRoute(
+      path: Routes.scanResult,
+      redirect: (_, state) => state.extra is ScanInput ? null : Routes.scanIntro,
+      builder: (_, state) => ScanResultScreen(input: state.extra as ScanInput),
+    ),
     GoRoute(path: Routes.preferences, builder: (_, __) => const PreferencesScreen()),
 
     // Pushed pages (over the shell)

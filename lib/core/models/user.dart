@@ -1,11 +1,22 @@
 import 'package:equatable/equatable.dart';
 
 class Measurements extends Equatable {
+  // Rounded, kept as int for sizing logic and display.
   final int chest;
   final int waist;
   final int hips;
   final int height;
   final int weight;
+
+  // From the scan API. Null for mock / legacy stored data.
+  final double? shoulderCm;
+  final double? inseamCm;
+  final double? confidence;
+
+  /// Relative path (inside the app documents dir) of the cached .glb body
+  /// model. Stored relative because iOS changes the container UUID between
+  /// installs, which would invalidate an absolute path.
+  final String? modelPath;
 
   const Measurements({
     required this.chest,
@@ -13,7 +24,27 @@ class Measurements extends Equatable {
     required this.hips,
     required this.height,
     required this.weight,
+    this.shoulderCm,
+    this.inseamCm,
+    this.confidence,
+    this.modelPath,
   });
+
+  /// Builds from the `POST /scan` response body.
+  factory Measurements.fromApi(Map<String, dynamic> body) {
+    final m = body['measurements'] as Map<String, dynamic>;
+    double d(String k) => (m[k] as num).toDouble();
+    return Measurements(
+      chest: d('chest_cm').round(),
+      waist: d('waist_cm').round(),
+      hips: d('hips_cm').round(),
+      height: d('height_cm').round(),
+      weight: d('weight_kg_estimate').round(),
+      shoulderCm: d('shoulder_cm'),
+      inseamCm: d('inseam_cm'),
+      confidence: (body['confidence'] as num?)?.toDouble(),
+    );
+  }
 
   /// Best-fitting standard size label for these measurements.
   String get recommendedSize {
@@ -25,24 +56,47 @@ class Measurements extends Equatable {
     return 'XXL';
   }
 
+  Measurements copyWith({String? modelPath}) => Measurements(
+        chest: chest,
+        waist: waist,
+        hips: hips,
+        height: height,
+        weight: weight,
+        shoulderCm: shoulderCm,
+        inseamCm: inseamCm,
+        confidence: confidence,
+        modelPath: modelPath ?? this.modelPath,
+      );
+
   Map<String, dynamic> toJson() => {
         'chest': chest,
         'waist': waist,
         'hips': hips,
         'height': height,
         'weight': weight,
+        'shoulderCm': shoulderCm,
+        'inseamCm': inseamCm,
+        'confidence': confidence,
+        'modelPath': modelPath,
       };
 
+  // `as num` rather than `as int`: a value that round-tripped through JSON as
+  // 92.0 would throw on `as int`. Nullable fields keep pre-scan profiles loading.
   factory Measurements.fromJson(Map<String, dynamic> json) => Measurements(
-        chest: json['chest'] as int,
-        waist: json['waist'] as int,
-        hips: json['hips'] as int,
-        height: json['height'] as int,
-        weight: json['weight'] as int,
+        chest: (json['chest'] as num).toInt(),
+        waist: (json['waist'] as num).toInt(),
+        hips: (json['hips'] as num).toInt(),
+        height: (json['height'] as num).toInt(),
+        weight: (json['weight'] as num).toInt(),
+        shoulderCm: (json['shoulderCm'] as num?)?.toDouble(),
+        inseamCm: (json['inseamCm'] as num?)?.toDouble(),
+        confidence: (json['confidence'] as num?)?.toDouble(),
+        modelPath: json['modelPath'] as String?,
       );
 
   @override
-  List<Object?> get props => [chest, waist, hips, height, weight];
+  List<Object?> get props =>
+      [chest, waist, hips, height, weight, shoulderCm, inseamCm, confidence, modelPath];
 }
 
 class Address extends Equatable {

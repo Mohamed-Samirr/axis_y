@@ -30,6 +30,17 @@ dependencies:
   shimmer: ^3.0.0
   intl: ^0.20.2
 
+  # Networking (body scan API)
+  dio: ^5.7.0
+  http_parser: ^4.0.2
+
+  # Camera + files
+  camera: ^0.11.0+2
+  path_provider: ^2.1.4
+
+  # 3D viewer for the scanned body mesh (.glb)
+  model_viewer_plus: ^1.7.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
