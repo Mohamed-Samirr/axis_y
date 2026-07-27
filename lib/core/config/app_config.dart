@@ -38,7 +38,6 @@ abstract class AppConfig {
   static const Duration mockMaxLatency = Duration(milliseconds: 800);
 
   static const String appName = 'AXIS Y';
-  static const String currencySymbol = 'ج.م';
 
   /// OTP that the mock auth/reset flows accept.
   static const String mockOtp = '123456';

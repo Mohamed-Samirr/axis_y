@@ -39,7 +39,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _applyPromo() {
     setState(() => _discount = _promo.text.trim().isEmpty ? 0 : 50);
     if (_discount > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تطبيق خصم 50 ج.م')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('promo_applied', args: {'amount': formatEgp(50)}))),
+      );
     }
   }
 

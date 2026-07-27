@@ -24,7 +24,7 @@ class SocialButtons extends StatelessWidget {
             const Expanded(child: Divider()),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text('أو', style: TextStyle(color: AppColors.textSecondary)),
+              child: Text(context.tr('or_divider'), style: const TextStyle(color: AppColors.textSecondary)),
             ),
             const Expanded(child: Divider()),
           ],

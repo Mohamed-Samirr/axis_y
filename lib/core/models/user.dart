@@ -118,7 +118,7 @@ class Address extends Equatable {
     required this.apartment,
   });
 
-  String get summary => '$street، $area، $governorate';
+  String get summary => '$street, $area, $governorate';
 
   Map<String, dynamic> toJson() => {
         'id': id,

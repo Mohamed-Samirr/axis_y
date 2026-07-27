@@ -107,7 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(context.tr('delete_account')),
-        content: const Text('هل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.'),
+        content: Text(context.tr('delete_account_confirm')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(context.tr('clear'))),
           TextButton(

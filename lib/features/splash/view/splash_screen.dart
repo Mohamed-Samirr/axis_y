@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/data/local_store.dart';
 import '../../../core/di/injector.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -58,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 20),
             const Text('AXIS Y', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 4)),
             const SizedBox(height: 8),
-            Text('جرب قبل ما تشتري', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
+            Text(context.tr('onb1_title'), style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
           ],
         ),
       ),

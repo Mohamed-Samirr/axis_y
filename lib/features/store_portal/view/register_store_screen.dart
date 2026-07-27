@@ -64,10 +64,10 @@ class _RegisterStoreScreenState extends State<RegisterStoreScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _field(_name, 'اسم المتجر'),
-            _field(_type, 'نوع المنتجات'),
-            _field(_registry, 'رقم السجل التجاري'),
-            _field(_contact, 'رقم التواصل'),
+            _field(context, _name, context.tr('store_name')),
+            _field(context, _type, context.tr('product_type')),
+            _field(context, _registry, context.tr('commercial_registry')),
+            _field(context, _contact, context.tr('contact_number')),
             const SizedBox(height: 12),
             ElevatedButton(onPressed: _submit, child: Text(context.tr('register_store'))),
           ],
@@ -76,7 +76,7 @@ class _RegisterStoreScreenState extends State<RegisterStoreScreen> {
     );
   }
 
-  Widget _field(TextEditingController c, String label) {
+  Widget _field(BuildContext context, TextEditingController c, String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(

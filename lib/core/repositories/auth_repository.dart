@@ -1,6 +1,7 @@
 import '../config/app_config.dart';
 import '../data/local_store.dart';
 import '../data/mock_seed.dart';
+import '../localization/app_strings.dart';
 import '../models/user.dart';
 import '../utils/latency.dart';
 import '../utils/result.dart';
@@ -29,6 +30,11 @@ class MockAuthRepository implements AuthRepository {
     if (json != null) _current = AppUser.fromJson(json);
   }
 
+  String get _defaultUserName {
+    final localeCode = _store.getString(StoreKeys.locale) ?? 'ar';
+    return AppStrings.values[localeCode]?['default_user_name'] ?? AppStrings.values['ar']!['default_user_name']!;
+  }
+
   @override
   AppUser? get currentUser => _current;
 
@@ -45,7 +51,7 @@ class MockAuthRepository implements AuthRepository {
     // Account is created but session is saved only after OTP verification.
     _current = AppUser(
       id: 'u${DateTime.now().millisecondsSinceEpoch}',
-      name: name.isEmpty ? 'مستخدم AXIS' : name,
+      name: name.isEmpty ? _defaultUserName : name,
       phoneOrEmail: phoneOrEmail,
       points: 0,
     );

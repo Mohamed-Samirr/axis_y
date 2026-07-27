@@ -325,7 +325,7 @@ class _CompareButton extends StatelessWidget {
             final ok = context.read<CompareCubit>().toggle(product);
             final messenger = ScaffoldMessenger.of(context);
             if (!ok) {
-              messenger.showSnackBar(const SnackBar(content: Text('أقصى 3 منتجات للمقارنة')));
+              messenger.showSnackBar(SnackBar(content: Text(context.tr('compare_max'))));
             } else if (!inCompare) {
               messenger.showSnackBar(SnackBar(
                 content: Text(context.tr('add_to_compare')),

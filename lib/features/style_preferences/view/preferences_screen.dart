@@ -19,10 +19,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   final Map<String, String> _answers = {};
 
   static const _questions = <String, List<String>>{
-    'prefs_colors': ['زاهية', 'هادية', 'الاتنين'],
-    'prefs_style': ['كاجوال', 'رسمي', 'رياضي', 'موضة'],
-    'prefs_shops': ['توبات', 'بناطيل', 'فساتين', 'جاكيتات', 'كل حاجة'],
-    'prefs_freq': ['يومي', 'أسبوعي', 'شهري', 'مناسبات'],
+    'prefs_colors': ['pref_color_vivid', 'pref_color_calm', 'pref_color_both'],
+    'prefs_style': ['pref_style_casual', 'pref_style_formal', 'pref_style_sport', 'pref_style_fashion'],
+    'prefs_shops': ['pref_shop_tops', 'pref_shop_pants', 'pref_shop_dresses', 'pref_shop_jackets', 'pref_shop_everything'],
+    'prefs_freq': ['pref_freq_daily', 'pref_freq_weekly', 'pref_freq_monthly', 'pref_freq_occasions'],
   };
 
   void _finish() {
@@ -46,7 +46,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
               children: entry.value.map((option) {
                 final selected = _answers[entry.key] == option;
                 return ChoiceChip(
-                  label: Text(option),
+                  label: Text(context.tr(option)),
                   selected: selected,
                   onSelected: (_) => setState(() => _answers[entry.key] = option),
                   selectedColor: AppColors.navy,
