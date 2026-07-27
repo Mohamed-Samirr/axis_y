@@ -95,7 +95,7 @@ class _HomeContent extends StatelessWidget {
           const SizedBox(height: 20),
           _SectionHeader(title: context.tr('picked_for_you')),
           SizedBox(
-            height: 316,
+            height: 300,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),

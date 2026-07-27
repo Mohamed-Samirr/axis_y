@@ -20,64 +20,72 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('${Routes.product}/${product.id}'),
-      child: Container(
-        width: width,
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                AppNetworkImage(
-                  url: product.images.first,
-                  width: width,
-                  height: width * 1.15,
-                  radius: const BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                if (product.isDiscounted)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: _Badge(text: '-${(100 - product.price / product.oldPrice! * 100).round()}%', color: AppColors.danger),
-                  ),
-                if (product.isNew && !product.isDiscounted)
-                  Positioned(top: 8, left: 8, child: _Badge(text: context.tr('cat_new'), color: AppColors.navy)),
-                Positioned(top: 4, right: 4, child: _HeartButton(productId: product.id)),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    // The card packs image + 4 text rows into a tightly budgeted fixed
+    // height; letting the system font-size setting scale that text is what
+    // was overflowing it (RenderFlex overflow on this Column). The image and
+    // icons don't scale with text, so locking text to 1x here is the only
+    // thing that keeps the fixed height honest on every device.
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: GestureDetector(
+        onTap: () => context.push('${Routes.product}/${product.id}'),
+        child: Container(
+          width: width,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
                 children: [
-                  Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(product.storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                  const SizedBox(height: 4),
-                  RatingStars(rating: product.rating, size: 13),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(formatEgp(product.price), style: const TextStyle(color: AppColors.price, fontWeight: FontWeight.bold, fontSize: 15)),
-                      if (product.isDiscounted) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          formatEgp(product.oldPrice!),
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, decoration: TextDecoration.lineThrough),
-                        ),
-                      ],
-                    ],
+                  AppNetworkImage(
+                    url: product.images.first,
+                    width: width,
+                    height: width * 1.15,
+                    radius: const BorderRadius.vertical(top: Radius.circular(16)),
                   ),
+                  if (product.isDiscounted)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: _Badge(text: '-${(100 - product.price / product.oldPrice! * 100).round()}%', color: AppColors.danger),
+                    ),
+                  if (product.isNew && !product.isDiscounted)
+                    Positioned(top: 8, left: 8, child: _Badge(text: context.tr('cat_new'), color: AppColors.navy)),
+                  Positioned(top: 4, right: 4, child: _HeartButton(productId: product.id)),
                 ],
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 2),
+                    Text(product.storeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    RatingStars(rating: product.rating, size: 13),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(formatEgp(product.price), style: const TextStyle(color: AppColors.price, fontWeight: FontWeight.bold, fontSize: 15)),
+                        if (product.isDiscounted) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            formatEgp(product.oldPrice!),
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, decoration: TextDecoration.lineThrough),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
