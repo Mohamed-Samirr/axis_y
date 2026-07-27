@@ -89,10 +89,13 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
           _capturing = false;
         });
       } else {
-        context.pushReplacement(
-          Routes.scanResult,
-          extra: widget.input.copyWith(front: _front, side: file),
-        );
+        final result = widget.input.copyWith(front: _front, side: file);
+        if (widget.input.manualPhotoCapture) {
+          // Manual-entry flow: hand the two files back rather than analyzing.
+          context.pop(result);
+        } else {
+          context.pushReplacement(Routes.scanResult, extra: result);
+        }
       }
     } on CameraException {
       if (mounted) {

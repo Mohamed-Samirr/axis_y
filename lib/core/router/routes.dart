@@ -8,6 +8,7 @@ abstract class Routes {
   static const scanIntro = '/scan-intro';
   static const scanCamera = '/scan-camera';
   static const scanResult = '/scan-result';
+  static const scanManual = '/scan-manual';
   static const preferences = '/preferences';
 
   // Shell tabs

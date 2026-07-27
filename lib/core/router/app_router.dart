@@ -5,6 +5,7 @@ import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/otp_screen.dart';
 import '../../features/auth/view/register_screen.dart';
 import '../../features/body_scan/models/scan_input.dart';
+import '../../features/body_scan/view/manual_measurements_screen.dart';
 import '../../features/body_scan/view/scan_camera_screen.dart';
 import '../../features/body_scan/view/scan_intro_screen.dart';
 import '../../features/body_scan/view/scan_result_screen.dart';
@@ -59,6 +60,10 @@ final GoRouter appRouter = GoRouter(
       path: Routes.scanResult,
       redirect: (_, state) => state.extra is ScanInput ? null : Routes.scanIntro,
       builder: (_, state) => ScanResultScreen(input: state.extra as ScanInput),
+    ),
+    GoRoute(
+      path: Routes.scanManual,
+      builder: (_, state) => ManualMeasurementsScreen(initialHeightCm: state.extra as double?),
     ),
     GoRoute(path: Routes.preferences, builder: (_, __) => const PreferencesScreen()),
 

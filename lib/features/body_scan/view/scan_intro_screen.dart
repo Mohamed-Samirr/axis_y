@@ -32,6 +32,13 @@ class _ScanIntroScreenState extends State<ScanIntroScreen> {
     context.push(Routes.scanCamera, extra: ScanInput(heightCm: heightCm));
   }
 
+  /// Bypasses the camera + AI pipeline entirely: the user types their own
+  /// measurements on the next screen instead of being scanned.
+  void _skipToManual() {
+    final heightCm = double.tryParse(_height.text.trim());
+    context.push(Routes.scanManual, extra: heightCm);
+  }
+
   /// Validated client-side so the user gets an instant error instead of a
   /// 15-second round trip ending in a 422.
   String? _validateHeight(String? value) {
@@ -97,6 +104,8 @@ class _ScanIntroScreenState extends State<ScanIntroScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: _start, child: Text(context.tr('scan_start'))),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _skipToManual, child: Text(context.tr('skip_scan_manual'))),
           ],
         ),
       ),
