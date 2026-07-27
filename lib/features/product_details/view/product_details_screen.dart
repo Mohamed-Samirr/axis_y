@@ -234,7 +234,7 @@ class _Loaded extends StatelessWidget {
                     Text(context.tr('you_may_like'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 300,
+                      height: 316,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: state.similar.length,
