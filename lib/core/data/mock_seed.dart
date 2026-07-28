@@ -3,9 +3,14 @@ import '../models/commerce.dart';
 import '../models/notification.dart';
 import '../models/user.dart';
 
-/// Deterministic placeholder image from picsum (works as a network placeholder).
-String _img(String seed) => 'https://picsum.photos/seed/$seed/600/750';
-String _logo(String seed) => 'https://picsum.photos/seed/${seed}logo/200/200';
+/// Mock imagery comes from the Pexels CDN: each id is a photo picked to match
+/// the garment it represents, so cards show real clothes instead of noise.
+String _photo(int id, {int w = 600, int h = 750}) =>
+    'https://images.pexels.com/photos/$id/pexels-photo-$id.jpeg'
+    '?auto=compress&cs=tinysrgb&w=$w&h=$h&fit=crop';
+
+String _logo(int id) => _photo(id, w: 200, h: 200);
+String _banner(int id) => _photo(id, w: 900, h: 500);
 
 /// Standard XS–XXL size ladder, scaled around a base chest measurement.
 List<ProductSize> _sizes(int baseChest, {List<String> unavailable = const []}) {
@@ -50,20 +55,21 @@ class MockSeed {
     ],
   );
 
+  /// Storefront / boutique shots, one per store.
   static final List<Store> stores = [
-    const Store(id: 's1', name: 'زاره مصر', logo: '', productCount: 240, rating: 4.6),
-    const Store(id: 's2', name: 'كونكريت', logo: '', productCount: 180, rating: 4.4),
-    const Store(id: 's3', name: 'دفاكتو', logo: '', productCount: 320, rating: 4.2),
-    const Store(id: 's4', name: 'تاون تيم', logo: '', productCount: 150, rating: 4.7),
-    const Store(id: 's5', name: 'مود', logo: '', productCount: 95, rating: 4.1),
-    const Store(id: 's6', name: 'أوكسي جين', logo: '', productCount: 210, rating: 4.5),
-  ].map((s) => Store(id: s.id, name: s.name, logo: _logo(s.id), productCount: s.productCount, rating: s.rating)).toList();
+    Store(id: 's1', name: 'زاره مصر', logo: _logo(8311880), productCount: 240, rating: 4.6),
+    Store(id: 's2', name: 'كونكريت', logo: _logo(14534753), productCount: 180, rating: 4.4),
+    Store(id: 's3', name: 'دفاكتو', logo: _logo(8386666), productCount: 320, rating: 4.2),
+    Store(id: 's4', name: 'تاون تيم', logo: _logo(7679784), productCount: 150, rating: 4.7),
+    Store(id: 's5', name: 'مود', logo: _logo(8387127), productCount: 95, rating: 4.1),
+    Store(id: 's6', name: 'أوكسي جين', logo: _logo(7679742), productCount: 210, rating: 4.5),
+  ];
 
   static final List<AppBanner> banners = [
-    AppBanner(id: 'b1', image: _img('banner1'), title: 'خصم 30% على التوبات'),
-    AppBanner(id: 'b2', image: _img('banner2'), title: 'تشكيلة الصيف وصلت'),
-    AppBanner(id: 'b3', image: _img('banner3'), title: 'جرب قبل ما تشتري'),
-    AppBanner(id: 'b4', image: _img('banner4'), title: 'توصيل مجاني فوق 1000ج'),
+    AppBanner(id: 'b1', image: _banner(30254262), title: 'خصم 30% على التوبات'),
+    AppBanner(id: 'b2', image: _banner(33276443), title: 'تشكيلة الصيف وصلت'),
+    AppBanner(id: 'b3', image: _banner(5622915), title: 'جرب قبل ما تشتري'),
+    AppBanner(id: 'b4', image: _banner(5869619), title: 'توصيل مجاني فوق 1000ج'),
   ];
 
   static final List<Review> _sampleReviews = [
@@ -73,6 +79,46 @@ class MockSeed {
   ];
 
   static final List<Product> products = _buildProducts();
+
+  /// Three Pexels photo ids per product, in the same order as [_buildProducts]'s
+  /// table. Each row was picked from a search for that exact garment.
+  static const List<List<int>> _productPhotos = [
+    [4115035, 9775889, 4066288], // تيشيرت قطن سادة
+    [6103704, 1635596, 23547651], // قميص كاجوال مقلم
+    [11751211, 12980904, 7648372], // بولو كلاسيك
+    [11340657, 6551385, 7236120], // هودي أوفر سايز
+    [8217314, 7824049, 9558716], // تيشيرت أوفر سايز مطبوع
+    [5191435, 5149729, 7129369], // قميص كتان صيفي
+    [5319513, 1634839, 6009198], // سويت شيرت بغطاء
+    [32695898, 16996376, 20594780], // تيشيرت رياضي دراي فت
+
+    [10133278, 6764142, 1082526], // بنطلون جينز سليم
+    [9724757, 8350481, 9464625], // بنطلون تشينو بيج
+    [11716436, 5365474, 12384601], // بنطلون كارجو
+    [10133275, 10133273, 2129970], // جينز واسع
+    [13339846, 8250137, 8121927], // بنطلون قماش رسمي
+    [4195453, 4725152, 3093834], // شورت جينز
+    [9901666, 34272485, 10392342], // بنطلون رياضي جوجر
+    [7748773, 7593007, 6246487], // ليجن رياضي
+
+    [5637456, 4589213, 6675408], // فستان صيفي زهور
+    [1655841, 6234213, 13252124], // فستان سواريه
+    [14452577, 14452587, 5362702], // فستان كاجوال ميدي
+    [9119608, 13262239, 8633713], // فستان قطن يومي
+    [5160503, 8060452, 5675268], // فستان محتشم واسع
+    [4614881, 20544951, 25731827], // فستان دنيم
+    [6235477, 12163542, 6234225], // فستان مخمل شتوي
+
+    [12083001, 6770027, 5524406], // جاكيت جينز
+    [12455995, 5350007, 5236973], // جاكيت بمبر
+    [11124953, 7691041, 8484005], // بليزر رسمي
+    [12345554, 9566118, 10785431], // جاكيت جلد
+    [9603630, 8989555, 9603626], // كارديجان صوف
+    [7147889, 7147891, 6084430], // بافي جاكيت شتوي
+    [8454520, 6175641, 10385757], // جاكيت رياضي خفيف
+    [13973198, 6533889, 5263493], // ترنش كوت
+    [4014487, 10059068, 5120186], // جاكيت صوف كاجوال
+  ];
 
   static List<Product> _buildProducts() {
     final result = <Product>[];
@@ -134,9 +180,12 @@ class MockSeed {
       final sold = row[7] as int;
       final isNew = row[8] as bool;
       final store = stores[storeIndex];
-      final palette = palettes[i % palettes.length]
-          .map((c) => ProductColor(name: c.name, hex: c.hex, image: _img('p${i}_${c.name}')))
-          .toList();
+      final photos = [for (final id in _productPhotos[i]) _photo(id)];
+      // Colour swatches reuse the product's own shots so they stay on-garment.
+      final palette = [
+        for (final (j, c) in palettes[i % palettes.length].indexed)
+          ProductColor(name: c.name, hex: c.hex, image: photos[j % photos.length]),
+      ];
 
       result.add(Product(
         id: 'p${i + 1}',
@@ -145,7 +194,7 @@ class MockSeed {
         storeName: store.name,
         price: price,
         oldPrice: oldPrice == 0 ? null : oldPrice,
-        images: List.generate(3, (j) => _img('p${i + 1}_$j')),
+        images: photos,
         colors: palette,
         sizes: _sizes(baseChest, unavailable: i % 4 == 0 ? const ['XXL'] : const []),
         material: category == ProductCategory.jackets ? 'بوليستر / قطن' : 'قطن 100%',
