@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>عشان ناخد صورتين ونحسب مقاساتك بدقة</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>عشان تختار صورتين من المعرض بدل ما تصور</string>
 	<!-- Development only — remove once the scan API is served over HTTPS -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/router/routes.dart';
@@ -22,12 +25,20 @@ class ScanCameraScreen extends StatefulWidget {
 }
 
 class _ScanCameraScreenState extends State<ScanCameraScreen> {
+  /// Self-timer options in seconds; 0 means shoot immediately. The user is
+  /// alone in front of the camera, so a delay is what lets them step back into
+  /// the frame before the shot is taken.
+  static const _timerOptions = [0, 3, 10];
+
   CameraController? _controller;
   int _step = 0; // 0 = front, 1 = side
   File? _front;
   bool _initializing = true;
   bool _capturing = false;
   String? _error;
+  int _timerSeconds = 0;
+  int _countdown = 0;
+  Timer? _countdownTimer;
 
   @override
   void initState() {
@@ -72,6 +83,42 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
     }
   }
 
+  void _cycleTimer() {
+    _cancelCountdown();
+    setState(() {
+      _timerSeconds = _timerOptions[(_timerOptions.indexOf(_timerSeconds) + 1) % _timerOptions.length];
+    });
+  }
+
+  void _cancelCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    if (_countdown != 0) setState(() => _countdown = 0);
+  }
+
+  /// Shutter tap: fires straight away with the timer off, otherwise counts down
+  /// first. Tapping again mid-countdown cancels it.
+  void _onShutter() {
+    if (_countdownTimer != null) {
+      _cancelCountdown();
+      return;
+    }
+    if (_timerSeconds == 0) {
+      _capture();
+      return;
+    }
+    setState(() => _countdown = _timerSeconds);
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      if (_countdown <= 1) {
+        _cancelCountdown();
+        _capture();
+      } else {
+        setState(() => _countdown--);
+      }
+    });
+  }
+
   Future<void> _capture() async {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized || _capturing) return;
@@ -80,23 +127,8 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
       // takePicture() writes to a temp dir; that file is the only copy and the
       // Cubit deletes it once the scan finishes.
       final shot = await controller.takePicture();
-      final file = File(shot.path);
       if (!mounted) return;
-      if (_step == 0) {
-        setState(() {
-          _front = file;
-          _step = 1;
-          _capturing = false;
-        });
-      } else {
-        final result = widget.input.copyWith(front: _front, side: file);
-        if (widget.input.manualPhotoCapture) {
-          // Manual-entry flow: hand the two files back rather than analyzing.
-          context.pop(result);
-        } else {
-          context.pushReplacement(Routes.scanResult, extra: result);
-        }
-      }
+      _accept([File(shot.path)]);
     } on CameraException {
       if (mounted) {
         setState(() => _capturing = false);
@@ -105,8 +137,62 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
     }
   }
 
+  /// Alternative to shooting live: pick the two poses from the gallery. Picking
+  /// a single image only fills the current step, so the two can be chosen in
+  /// separate trips as well.
+  Future<void> _pickFromGallery() async {
+    if (_capturing) return;
+    _cancelCountdown();
+    try {
+      final picker = ImagePicker();
+      // `pickMultiImage` rejects a limit below 2, so the side-only step uses the
+      // single-image picker instead.
+      // Gallery originals can be 12MP; capping them keeps uploads the same size
+      // as the 720p live capture.
+      final picked = _step == 0
+          ? await picker.pickMultiImage(limit: 2, maxWidth: 720, maxHeight: 1280)
+          : [?await picker.pickImage(source: ImageSource.gallery, maxWidth: 720, maxHeight: 1280)];
+      if (!mounted || picked.isEmpty) return;
+      _accept(picked.take(2).map((x) => File(x.path)).toList());
+    } on PlatformException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('scan_gallery_failed'))));
+      }
+    }
+  }
+
+  /// Consumes one or two images from the current step onwards, advancing the
+  /// step or finishing the flow once both poses are in hand.
+  void _accept(List<File> files) {
+    var front = _front;
+    File? side;
+    for (final file in files) {
+      if (front == null) {
+        front = file;
+      } else {
+        side ??= file;
+      }
+    }
+    if (side == null) {
+      setState(() {
+        _front = front;
+        _step = 1;
+        _capturing = false;
+      });
+      return;
+    }
+    final result = widget.input.copyWith(front: front, side: side);
+    if (widget.input.manualPhotoCapture) {
+      // Manual-entry flow: hand the two files back rather than analyzing.
+      context.pop(result);
+    } else {
+      context.pushReplacement(Routes.scanResult, extra: result);
+    }
+  }
+
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     // The preview keeps the camera hardware open until disposed.
     _controller?.dispose();
     super.dispose();
@@ -140,6 +226,25 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
                           onPressed: () => context.pop(),
                         ),
                       ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: IconButton(
+                          tooltip: _timerSeconds == 0
+                              ? context.tr('scan_timer_off')
+                              : context.tr('scan_timer_on', args: {'s': '$_timerSeconds'}),
+                          icon: Icon(
+                            _timerSeconds == 0
+                                ? Icons.timer_off_outlined
+                                : _timerSeconds == 3
+                                    ? Icons.timer_3_select
+                                    : Icons.timer_10_select,
+                            // Gold reads as "armed" against the dark preview.
+                            color: _timerSeconds == 0 ? Colors.white70 : AppColors.gold,
+                          ),
+                          onPressed: _cycleTimer,
+                        ),
+                      ),
                       Align(
                         alignment: Alignment.topCenter,
                         child: Padding(
@@ -153,32 +258,59 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
                       ),
                       Align(
                         alignment: Alignment.center,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(color: AppColors.navy.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(12)),
-                          child: Text(context.tr('scan_hint'), style: const TextStyle(color: Colors.white)),
-                        ),
+                        child: _countdown > 0
+                            // While counting down the user is stepping back into
+                            // frame, so the number has to read from a distance.
+                            ? Text(
+                                '$_countdown',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 96,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [Shadow(color: Colors.black54, blurRadius: 12)],
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(color: AppColors.navy.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(12)),
+                                child: Text(context.tr('scan_hint'), style: const TextStyle(color: Colors.white)),
+                              ),
                       ),
                       Align(
                         alignment: Alignment.bottomCenter,
                         child: Padding(
                           padding: const EdgeInsets.only(bottom: 40),
-                          child: GestureDetector(
-                            onTap: _capture,
-                            child: Container(
-                              width: 74,
-                              height: 74,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _RoundAction(
+                                icon: Icons.photo_library_outlined,
+                                label: _step == 0 ? context.tr('scan_pick_two') : context.tr('scan_from_gallery'),
+                                onTap: _pickFromGallery,
                               ),
-                              child: _capturing
-                                  ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : Container(
-                                      margin: const EdgeInsets.all(6),
-                                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                    ),
-                            ),
+                              const SizedBox(width: 28),
+                              GestureDetector(
+                                onTap: _onShutter,
+                                child: Container(
+                                  width: 74,
+                                  height: 74,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 4),
+                                  ),
+                                  child: _capturing
+                                      ? const Padding(padding: EdgeInsets.all(14), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                      : _countdown > 0
+                                          ? const Icon(Icons.close, color: Colors.white, size: 32)
+                                          : Container(
+                                              margin: const EdgeInsets.all(6),
+                                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                            ),
+                                ),
+                              ),
+                              // Balances the gallery button so the shutter stays centred.
+                              const SizedBox(width: 80),
+                            ],
                           ),
                         ),
                       ),
@@ -192,6 +324,31 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
                       ),
                     ],
                   ),
+      ),
+    );
+  }
+}
+
+/// Secondary control next to the shutter, sized to leave the shutter dominant.
+class _RoundAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _RoundAction({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+          child: Icon(icon, color: Colors.white, size: 24),
+        ),
       ),
     );
   }
