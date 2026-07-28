@@ -42,13 +42,6 @@ class AxisYApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            // Several cards (e.g. ProductCard) use tightly-budgeted fixed
-            // heights; an unclamped system font size overflows them.
-            builder: (context, child) => MediaQuery.withClampedTextScaling(
-              minScaleFactor: 1.0,
-              maxScaleFactor: 1.3,
-              child: child!,
-            ),
             routerConfig: appRouter,
           );
         },
