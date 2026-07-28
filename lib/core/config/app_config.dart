@@ -15,6 +15,11 @@ abstract class AppConfig {
   /// Setting this to `false` restores the fully offline mock scan.
   static const bool useRealBodyScan = true;
 
+  /// Fit check + virtual try-on against the main API (`/api/v1`). Off until the
+  /// gateway is reachable — the mock repository serves the exact same
+  /// [FitResult] / [TryOnResult] shapes, so the UI is identical either way.
+  static const bool useRealTryOn = bool.fromEnvironment('AXIS_REAL_TRYON');
+
   /// Override at build time:
   ///   flutter run --dart-define=AXIS_API_BASE=http://192.168.1.7:8000
   static const String _apiBaseOverride = String.fromEnvironment('AXIS_API_BASE');
@@ -26,9 +31,24 @@ abstract class AppConfig {
     return 'http://localhost:8000';
   }
 
+  /// The body scan engine (`/scan`, `/scan-3d`) is mounted at the root, the
+  /// gateway (products, fit-check, try-on) under this prefix.
+  static const String mainApiPrefix = '/api/v1';
+
   /// The scan pipeline runs MediaPipe + rembg on CPU. 5–30s is normal.
   static const Duration scanTimeout = Duration(seconds: 120);
   static const Duration connectTimeout = Duration(seconds: 15);
+
+  /// Products, fit-check, scan registration — plain JSON round trips.
+  static const Duration standardTimeout = Duration(seconds: 10);
+
+  /// Morphing is ~300–600ms but the response carries GLB URLs the client then
+  /// downloads, and the gateway may still be cold.
+  static const Duration tryOnTimeout = Duration(seconds: 30);
+
+  /// Exponential backoff for 5xx only — never for 422 (guide §9).
+  static const int maxRetries = 2;
+  static const Duration retryBaseDelay = Duration(milliseconds: 400);
 
   /// Below this, the scan result warns the user that the photos were unclear.
   static const double lowConfidenceThreshold = 0.85;

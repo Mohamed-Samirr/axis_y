@@ -10,6 +10,7 @@ import '../../../core/localization/app_localizations.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/repositories/body_scan_repository.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/model_storage.dart';
 import '../../../core/widgets/state_views.dart';
@@ -23,7 +24,9 @@ class ScanResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => BodyScanCubit(sl<BodyScanRepository>(), sl<AuthRepository>())..analyze(input),
+      create: (_) =>
+          BodyScanCubit(sl<BodyScanRepository>(), sl<AuthRepository>(), sl<SessionService>())
+            ..analyze(input),
       child: _ScanResultBody(input: input),
     );
   }

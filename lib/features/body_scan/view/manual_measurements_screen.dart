@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,7 +10,9 @@ import '../../../core/di/injector.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/models/user.dart';
 import '../../../core/repositories/auth_repository.dart';
+import '../../../core/repositories/body_scan_repository.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/scan_input.dart';
 
@@ -111,6 +114,9 @@ class _ManualMeasurementsScreenState extends State<ManualMeasurementsScreen> {
       inseamCm: double.tryParse(_inseam.text.trim()),
     );
     await auth.saveUser(user.copyWith(measurements: measurements));
+    // Hand-entered measurements register exactly like scanned ones, so the
+    // fit-check and try-on endpoints work for users who skipped the camera.
+    unawaited(registerScanSession(sl<BodyScanRepository>(), sl<SessionService>(), measurements));
     await _deletePhotos();
     _front = null;
     _side = null;

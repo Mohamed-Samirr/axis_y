@@ -53,6 +53,13 @@ void main() {
       expect(mapDioError(_withResponse(422, detail)), 'scan_err_bad_request');
     });
 
+    test('maps 404 to the missing-scan key so the app can drop the scan_id', () {
+      final error = _withResponse(404, {'detail': 'Scan not found'});
+      expect(mapDioError(error), 'err_scan_missing');
+      expect(isMissingScan(error), isTrue);
+      expect(isMissingScan(_withResponse(500, null)), isFalse);
+    });
+
     test('maps 5xx to the server key', () {
       expect(mapDioError(_withResponse(500, {'detail': 'Internal error: boom'})), 'scan_err_server');
       expect(mapDioError(_withResponse(503, null)), 'scan_err_server');

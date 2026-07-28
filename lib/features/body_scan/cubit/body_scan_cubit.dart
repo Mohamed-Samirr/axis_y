@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:equatable/equatable.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/models/user.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/repositories/body_scan_repository.dart';
+import '../../../core/services/session_service.dart';
 import '../models/scan_input.dart';
 
 enum ScanStatus { idle, uploading, analyzing, buildingModel, done, error }
@@ -32,8 +34,9 @@ class BodyScanState extends Equatable {
 class BodyScanCubit extends Cubit<BodyScanState> {
   final BodyScanRepository _repo;
   final AuthRepository _auth;
+  final SessionService _session;
 
-  BodyScanCubit(this._repo, this._auth) : super(const BodyScanState());
+  BodyScanCubit(this._repo, this._auth, this._session) : super(const BodyScanState());
 
   /// Guarded emit: the user may leave the screen while a 30s request is still
   /// in flight, which closes the Cubit.
@@ -94,5 +97,8 @@ class BodyScanCubit extends Cubit<BodyScanState> {
     final user = _auth.currentUser;
     if (m == null || user == null) return;
     await _auth.saveUser(user.copyWith(measurements: m));
+    // Not awaited: the profile is already saved and navigation must not wait on
+    // the gateway. The scan_id lands before the user reaches a product page.
+    unawaited(registerScanSession(_repo, _session, m));
   }
 }

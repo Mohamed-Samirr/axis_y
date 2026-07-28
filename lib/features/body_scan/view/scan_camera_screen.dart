@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/router/routes.dart';
@@ -30,6 +32,12 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
   /// the frame before the shot is taken.
   static const _timerOptions = [0, 3, 10];
 
+  /// A tilted phone foreshortens the body and skews every circumference the
+  /// backend derives, so the shutter stays locked past this much lean in
+  /// either axis (guide §10 asks for 0°; a few degrees is the practical floor
+  /// for a handheld device).
+  static const double _maxTiltDegrees = 8;
+
   CameraController? _controller;
   int _step = 0; // 0 = front, 1 = side
   File? _front;
@@ -40,10 +48,43 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
   int _countdown = 0;
   Timer? _countdownTimer;
 
+  /// Worst-axis lean in whole degrees, or null when the device reports no
+  /// accelerometer — the gate then stays open rather than trapping the user.
+  final ValueNotifier<int?> _tilt = ValueNotifier(null);
+  StreamSubscription<AccelerometerEvent>? _tiltSub;
+  double _smoothedTilt = 0;
+
+  bool get _isLevel => _tilt.value == null || _tilt.value! <= _maxTiltDegrees;
+
   @override
   void initState() {
     super.initState();
     _initCamera();
+    _watchTilt();
+  }
+
+  /// Gravity tells us how the phone is held: with it upright in portrait the
+  /// vector sits almost entirely on Y, so any weight on X (side roll) or Z
+  /// (leaning toward/away from the user) is the tilt we care about.
+  void _watchTilt() {
+    _tiltSub = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(
+      (event) {
+        const rad2deg = 180 / math.pi;
+        final roll = math.atan2(event.x, event.y) * rad2deg;
+        final pitch =
+            math.atan2(event.z, math.sqrt(event.x * event.x + event.y * event.y)) * rad2deg;
+        final worst = math.max(roll.abs(), pitch.abs());
+        // Low-pass: raw accelerometer readings jitter by several degrees while
+        // the phone is simply being held.
+        _smoothedTilt = _smoothedTilt * 0.8 + worst * 0.2;
+        final rounded = _smoothedTilt.round();
+        // Only whole-degree changes repaint the indicator.
+        if (_tilt.value != rounded) _tilt.value = rounded;
+      },
+      // No sensor (web, desktop, some emulators): leave the gate open.
+      onError: (_) => _tilt.value = null,
+      cancelOnError: true,
+    );
   }
 
   Future<void> _initCamera() async {
@@ -61,8 +102,9 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
-      // `high` (720p) keeps uploads small; below it, segmentation quality drops.
-      final controller = CameraController(camera, ResolutionPreset.high, enableAudio: false);
+      // 1080p is the minimum the scan engine is specified against (guide §10);
+      // `veryHigh` is the first preset that clears it.
+      final controller = CameraController(camera, ResolutionPreset.veryHigh, enableAudio: false);
       await controller.initialize();
       if (!mounted) {
         await controller.dispose();
@@ -101,6 +143,11 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
   void _onShutter() {
     if (_countdownTimer != null) {
       _cancelCountdown();
+      return;
+    }
+    if (!_isLevel) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.tr('scan_hold_straight'))));
       return;
     }
     if (_timerSeconds == 0) {
@@ -148,10 +195,10 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
       // `pickMultiImage` rejects a limit below 2, so the side-only step uses the
       // single-image picker instead.
       // Gallery originals can be 12MP; capping them keeps uploads the same size
-      // as the 720p live capture.
+      // as the 1080p live capture.
       final picked = _step == 0
-          ? await picker.pickMultiImage(limit: 2, maxWidth: 720, maxHeight: 1280)
-          : [?await picker.pickImage(source: ImageSource.gallery, maxWidth: 720, maxHeight: 1280)];
+          ? await picker.pickMultiImage(limit: 2, maxWidth: 1080, maxHeight: 1920)
+          : [?await picker.pickImage(source: ImageSource.gallery, maxWidth: 1080, maxHeight: 1920)];
       if (!mounted || picked.isEmpty) return;
       _accept(picked.take(2).map((x) => File(x.path)).toList());
     } on PlatformException {
@@ -193,6 +240,8 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _tiltSub?.cancel();
+    _tilt.dispose();
     // The preview keeps the camera hardware open until disposed.
     _controller?.dispose();
     super.dispose();
@@ -333,8 +382,51 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
                           child: Text('${_step + 1} / 2', style: const TextStyle(color: Colors.white70, fontSize: 14)),
                         ),
                       ),
+                      Positioned(
+                        bottom: 160,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: ValueListenableBuilder<int?>(
+                            valueListenable: _tilt,
+                            builder: (context, tilt, __) =>
+                                _LevelIndicator(tilt: tilt, maxTilt: _maxTiltDegrees),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+      ),
+    );
+  }
+}
+
+/// Live pitch/roll readout. Green once the phone is upright enough to shoot,
+/// amber while it is off — the shutter refuses to fire in the amber state.
+class _LevelIndicator extends StatelessWidget {
+  final int? tilt;
+  final double maxTilt;
+  const _LevelIndicator({required this.tilt, required this.maxTilt});
+
+  @override
+  Widget build(BuildContext context) {
+    // No sensor: no claim about levelness, so show nothing at all.
+    if (tilt == null) return const SizedBox.shrink();
+    final level = tilt! <= maxTilt;
+    final color = level ? AppColors.success : AppColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(level ? Icons.check_circle : Icons.screen_rotation_alt, color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            level ? context.tr('scan_level_ok') : '${context.tr('scan_hold_straight')} · $tilt°',
+            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

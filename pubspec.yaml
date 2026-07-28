@@ -24,6 +24,8 @@ dependencies:
 
   # Persistence
   shared_preferences: ^2.3.2
+  # device_id / scan_id must not sit in plain SharedPreferences (guide §14).
+  flutter_secure_storage: ^9.2.2
 
   # UI helpers
   cached_network_image: ^3.4.1
@@ -36,6 +38,8 @@ dependencies:
 
   # Camera + files
   camera: ^0.11.0+2
+  # Pitch/roll gate on the shutter — a tilted phone skews the measurements.
+  sensors_plus: ^6.1.1
   path_provider: ^2.1.4
   image_picker: ^1.1.2
 

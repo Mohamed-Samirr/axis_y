@@ -46,6 +46,19 @@ class Measurements extends Equatable {
     );
   }
 
+  /// Body payload for `POST /body-scan`, which expects the same field names
+  /// the scan engine emitted. Shoulder/inseam are omitted when unknown (manual
+  /// entry) rather than sent as zeros.
+  Map<String, dynamic> toApiMeasurements() => {
+        'height_cm': height.toDouble(),
+        'chest_cm': chest.toDouble(),
+        'waist_cm': waist.toDouble(),
+        'hips_cm': hips.toDouble(),
+        'weight_kg_estimate': weight.toDouble(),
+        if (shoulderCm != null) 'shoulder_cm': shoulderCm,
+        if (inseamCm != null) 'inseam_cm': inseamCm,
+      };
+
   /// Best-fitting standard size label for these measurements.
   String get recommendedSize {
     if (chest <= 86) return 'XS';

@@ -6,15 +6,19 @@ import '../../../core/di/injector.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/models/catalog.dart';
 import '../../../core/models/commerce.dart';
+import '../../../core/models/fit.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/repositories/catalog_repository.dart';
+import '../../../core/repositories/tryon_repository.dart';
 import '../../../core/router/routes.dart';
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/app_network_image.dart';
 import '../../../core/widgets/product_card.dart';
 import '../../../core/widgets/rating_stars.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../../core/widgets/verdict_view.dart';
 import '../../cart_checkout/cubit/cart_cubit.dart';
 import '../../compare/cubit/compare_cubit.dart';
 import '../../wishlist/cubit/wishlist_cubit.dart';
@@ -27,7 +31,12 @@ class ProductDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => ProductDetailsCubit(sl<CatalogRepository>(), sl<AuthRepository>())..load(productId),
+      create: (_) => ProductDetailsCubit(
+        sl<CatalogRepository>(),
+        sl<AuthRepository>(),
+        sl<TryOnRepository>(),
+        sl<SessionService>(),
+      )..load(productId),
       child: const _ProductDetailsBody(),
     );
   }
@@ -187,7 +196,15 @@ class _Loaded extends StatelessWidget {
                       );
                     }).toList(),
                   ),
-                  if (state.sizeMismatch) ...[
+                  // Backend fit verdict for the selected size. It supersedes the
+                  // local "not your usual size" hint, which is only a guess.
+                  if (state.fitLoading) ...[
+                    const SizedBox(height: 12),
+                    const _FitCheckSkeleton(),
+                  ] else if (state.fit != null) ...[
+                    const SizedBox(height: 12),
+                    _FitCheckBanner(fit: state.fit!),
+                  ] else if (state.sizeMismatch) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -257,6 +274,100 @@ class _Loaded extends StatelessWidget {
         ],
       ),
       bottomSheet: _BottomBar(onAddToCart: () => _addToCart(context)),
+    );
+  }
+}
+
+/// `POST /fit-check` verdict: recommended size plus the tightest region, with
+/// the alternatives the engine suggested.
+class _FitCheckBanner extends StatelessWidget {
+  final FitResult fit;
+  const _FitCheckBanner({required this.fit});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = verdictColor(fit.overallVerdict);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(verdictIcon(fit.overallVerdict), color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr(fit.overallVerdict.key),
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Text(
+                context.tr('fit_confidence', args: {'p': (fit.overallConfidence * 100).round().toString()}),
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              ),
+            ],
+          ),
+          if (fit.recommendation != null) ...[
+            const SizedBox(height: 6),
+            // Server-authored copy, shown as-is.
+            Text(fit.recommendation!, style: const TextStyle(fontSize: 13)),
+          ],
+          if (fit.regions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: fit.regions
+                  .map((r) => Text(
+                        '${context.tr(r.labelKey)} ${r.easeCm >= 0 ? '+' : ''}${r.easeCm.toStringAsFixed(1)} ${context.tr('cm')}',
+                        style: TextStyle(fontSize: 12, color: verdictColor(r.verdict), fontWeight: FontWeight.w600),
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (fit.alternativeSizes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${context.tr('fit_other_sizes')}: ${fit.alternativeSizes.map((a) => '${a.sizeLabel} (${context.tr(a.predictedVerdict.key)})').join(' · ')}',
+              style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FitCheckSkeleton extends StatelessWidget {
+  const _FitCheckSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.navy.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.navy),
+          ),
+          const SizedBox(width: 10),
+          Text(context.tr('fit_checking'),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+        ],
+      ),
     );
   }
 }

@@ -3,10 +3,26 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
+import '../config/app_config.dart';
 import '../models/user.dart';
 import '../network/api_client.dart';
+import '../services/session_service.dart';
 import '../utils/model_storage.dart';
 import '../utils/result.dart';
+
+/// Registers freshly confirmed [measurements] and stores the returned
+/// `scan_id` on the session, which is what unlocks fit-check and try-on.
+///
+/// Deliberately silent on failure: the user's measurements are already saved
+/// locally, and the try-on screen prompts for a re-scan when no scan_id exists.
+Future<void> registerScanSession(
+  BodyScanRepository repo,
+  SessionService session,
+  Measurements measurements,
+) async {
+  final id = (await repo.registerScan(measurements)).valueOrNull;
+  if (id != null) await session.setScanId(id);
+}
 
 abstract class BodyScanRepository {
   /// Analyzes the two captured photos. The caller owns [frontImage] /
@@ -25,6 +41,11 @@ abstract class BodyScanRepository {
     required File sideImage,
     required double heightCm,
   });
+
+  /// Registers the finished scan with the main API and returns the `scan_id`
+  /// that fit-check and try-on are keyed on (guide §5.3). Also non-fatal: the
+  /// measurements are already the user's, this only unlocks the 3D features.
+  Future<Result<String>> registerScan(Measurements measurements);
 }
 
 class ApiBodyScanRepository implements BodyScanRepository {
@@ -81,6 +102,26 @@ class ApiBodyScanRepository implements BodyScanRepository {
       return Failure(mapDioError(e));
     }
   }
+
+  @override
+  Future<Result<String>> registerScan(Measurements measurements) async {
+    try {
+      // device_id is stamped on by DeviceIdInterceptor.
+      final res = await _api.dio.post<Map<String, dynamic>>(
+        '${AppConfig.mainApiPrefix}/body-scan',
+        data: <String, dynamic>{
+          'measurements': measurements.toApiMeasurements(),
+          'confidence': measurements.confidence ?? 1.0,
+        },
+        options: standardOptions(),
+      );
+      final id = res.data?['scan_id'] as String?;
+      if (id == null || id.isEmpty) return const Failure('error_generic');
+      return Success(id);
+    } catch (e) {
+      return Failure(mapDioError(e));
+    }
+  }
 }
 
 /// Offline fallback. Accepts and ignores the photos, keeps the ~2.5s delay, and
@@ -115,5 +156,13 @@ class MockBodyScanRepository implements BodyScanRepository {
     await Future.delayed(const Duration(milliseconds: 500));
     // No mesh offline — the result screen falls back to the painted mannequin.
     return const Failure('scan_err_server');
+  }
+
+  @override
+  Future<Result<String>> registerScan(Measurements measurements) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    // A stable local id so the offline flow still has a scan to hang fit
+    // checks off, matching the UUID shape the API returns.
+    return Success('mock-scan-${DateTime.now().millisecondsSinceEpoch}');
   }
 }

@@ -12,6 +12,8 @@ import '../repositories/notification_repository.dart';
 import '../repositories/order_repository.dart';
 import '../repositories/tryon_repository.dart';
 import '../repositories/wishlist_repository.dart';
+import '../services/glb_cache.dart';
+import '../services/session_service.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -20,12 +22,22 @@ final GetIt sl = GetIt.instance;
 Future<void> setupInjector() async {
   final localStore = await LocalStore.create();
   sl.registerSingleton<LocalStore>(localStore);
-  sl.registerLazySingleton<ApiClient>(() => ApiClient());
+
+  // The anonymous session must exist before the http client, which stamps the
+  // device_id onto every request.
+  sl.registerSingleton<SessionService>(await SessionService.create());
+  sl.registerLazySingleton<ApiClient>(() => ApiClient(sl()));
+  sl.registerLazySingleton<GlbCache>(() => GlbCache());
 
   // Body scan has a real backend, so it opts out of the global mock flag on its
   // own. Flipping AppConfig.useRealBodyScan to false restores the offline flow.
   sl.registerLazySingleton<BodyScanRepository>(
     () => AppConfig.useRealBodyScan ? ApiBodyScanRepository(sl()) : MockBodyScanRepository(),
+  );
+
+  // Same deal for fit-check / try-on against the gateway.
+  sl.registerLazySingleton<TryOnRepository>(
+    () => AppConfig.useRealTryOn ? ApiTryOnRepository(sl()) : MockTryOnRepository(sl()),
   );
 
   if (AppConfig.useMockData) {
@@ -35,7 +47,6 @@ Future<void> setupInjector() async {
     sl.registerLazySingleton<WishlistRepository>(() => LocalWishlistRepository(sl()));
     sl.registerLazySingleton<OrderRepository>(() => MockOrderRepository());
     sl.registerLazySingleton<NotificationRepository>(() => MockNotificationRepository());
-    sl.registerLazySingleton<TryOnRepository>(() => MockTryOnRepository());
     sl.registerLazySingleton<AssistantRepository>(() => MockAssistantRepository());
   } else {
     // TODO: register Api* repositories (dio) when the backend is ready.
