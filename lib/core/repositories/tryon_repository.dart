@@ -47,7 +47,20 @@ class ApiTryOnRepository implements TryOnRepository {
       );
       final body = res.data ?? const <String, dynamic>{};
       // The endpoint may return the verdict bare or wrapped in `fit_result`.
-      final fit = (body['fit_result'] as Map<String, dynamic>?) ?? body;
+      // `FitCheckResponse` also carries `alternative_sizes` as a *sibling* of
+      // `fit_result` (unlike `/try-on`, which nests it), so fold the sibling in
+      // when the nested list is absent or empty — otherwise the size
+      // suggestions silently never reach the UI.
+      final nested = body['fit_result'] as Map<String, dynamic>?;
+      final siblingAlternatives = body['alternative_sizes'] as List?;
+      final fit = nested == null
+          ? body
+          : {
+              ...nested,
+              if ((nested['alternative_sizes'] as List?)?.isNotEmpty != true &&
+                  siblingAlternatives != null)
+                'alternative_sizes': siblingAlternatives,
+            };
       return Success(FitResult.fromApi(fit).withSize(sizeLabel));
     } catch (e) {
       return Failure(mapDioError(e));

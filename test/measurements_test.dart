@@ -144,4 +144,49 @@ void main() {
       expect(m.copyWith(modelPath: null).modelPath, 'body_model.glb');
     });
   });
+
+  group('Measurements.toApiMeasurements', () {
+    // `BodyMeasurementsSchema` marks all six of these required — a missing
+    // shoulder_cm/inseam_cm is a 422 from the live API, which locks the user
+    // out of fit-check and try-on entirely.
+    const requiredByApi = [
+      'height_cm', 'shoulder_cm', 'chest_cm', 'waist_cm', 'hips_cm', 'inseam_cm',
+    ];
+
+    test('sends every field the API requires when the scan supplied them', () {
+      const m = Measurements(
+        chest: 99, waist: 84, hips: 99, height: 175, weight: 75,
+        shoulderCm: 44.2, inseamCm: 79.5,
+      );
+
+      final payload = m.toApiMeasurements();
+
+      expect(payload.keys, containsAll(requiredByApi));
+      expect(payload['shoulder_cm'], 44.2);
+      expect(payload['inseam_cm'], 79.5);
+      expect(payload['weight_kg_estimate'], 75.0);
+    });
+
+    test('substitutes height-derived estimates on the manual entry path', () {
+      // Both left blank in the manual form — the API still demands them.
+      const m = Measurements(chest: 92, waist: 78, hips: 100, height: 172, weight: 74);
+
+      final payload = m.toApiMeasurements();
+
+      expect(payload.keys, containsAll(requiredByApi));
+      expect(payload['shoulder_cm'], closeTo(44.2, 0.5));
+      expect(payload['inseam_cm'], closeTo(79.5, 0.5));
+      // The stored values stay null so the result screen keeps hiding rows the
+      // user never actually provided.
+      expect(m.shoulderCm, isNull);
+      expect(m.inseamCm, isNull);
+    });
+
+    test('never emits a zero for an unknown measurement', () {
+      const m = Measurements(chest: 92, waist: 78, hips: 100, height: 172, weight: 74);
+      for (final key in requiredByApi) {
+        expect(m.toApiMeasurements()[key], isNot(0), reason: '$key must be a real value');
+      }
+    });
+  });
 }

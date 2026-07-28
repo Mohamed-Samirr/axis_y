@@ -47,17 +47,27 @@ class Measurements extends Equatable {
   }
 
   /// Body payload for `POST /body-scan`, which expects the same field names
-  /// the scan engine emitted. Shoulder/inseam are omitted when unknown (manual
-  /// entry) rather than sent as zeros.
+  /// the scan engine emitted.
+  ///
+  /// `shoulder_cm` and `inseam_cm` are **required** by the API, so the manual
+  /// entry path — where the user may leave both blank — falls back to a
+  /// height-derived estimate rather than dropping the fields, which the server
+  /// rejects with a 422. The stored [shoulderCm] / [inseamCm] stay null so the
+  /// result screen keeps hiding rows the user never provided.
   Map<String, dynamic> toApiMeasurements() => {
         'height_cm': height.toDouble(),
         'chest_cm': chest.toDouble(),
         'waist_cm': waist.toDouble(),
         'hips_cm': hips.toDouble(),
         'weight_kg_estimate': weight.toDouble(),
-        if (shoulderCm != null) 'shoulder_cm': shoulderCm,
-        if (inseamCm != null) 'inseam_cm': inseamCm,
+        'shoulder_cm': shoulderCm ?? estimatedShoulderCm,
+        'inseam_cm': inseamCm ?? estimatedInseamCm,
       };
+
+  /// Anthropometric fallbacks, using the same height ratios the scan engine
+  /// produces (44.2cm shoulder / 79.5cm inseam at 172cm).
+  double get estimatedShoulderCm => height * 0.257;
+  double get estimatedInseamCm => height * 0.462;
 
   /// Best-fitting standard size label for these measurements.
   String get recommendedSize {
