@@ -216,8 +216,19 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
                 ? const Center(child: CircularProgressIndicator(color: Colors.white))
                 : Stack(
                     children: [
-                      Positioned.fill(child: CameraPreview(_controller!)),
-                      const Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _BodyGuidePainter()))),
+                      // Centred, not Positioned.fill: filling forces tight
+                      // constraints that defeat CameraPreview's own AspectRatio
+                      // and stretch the image. Letterboxing against the black
+                      // background also keeps the preview honest — what the
+                      // user frames is exactly what gets captured, which the
+                      // guide overlay depends on, so it rides inside the same
+                      // rect as the preview.
+                      Center(
+                        child: CameraPreview(
+                          _controller!,
+                          child: const IgnorePointer(child: CustomPaint(painter: _BodyGuidePainter())),
+                        ),
+                      ),
                       Positioned(
                         top: 8,
                         left: 8,
