@@ -68,17 +68,31 @@ class ProductCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   RatingStars(rating: product.rating, size: 13),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(formatEgp(product.price), style: const TextStyle(color: AppColors.price, fontWeight: FontWeight.bold, fontSize: 15)),
-                      if (product.isDiscounted) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          formatEgp(product.oldPrice!),
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, decoration: TextDecoration.lineThrough),
-                        ),
-                      ],
-                    ],
+                  // The price row is the one part of the card with no width
+                  // limit of its own — two prices side by side already exceed a
+                  // 137px card on a small phone, which is what was painting the
+                  // overflow stripe under the price. Scaling the row down keeps
+                  // every digit readable (ellipsizing a price would not) and
+                  // cannot overflow at any price length, font or text scale.
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(formatEgp(product.price), style: const TextStyle(color: AppColors.price, fontWeight: FontWeight.bold, fontSize: 14)),
+                          if (product.isDiscounted) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              formatEgp(product.oldPrice!),
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, decoration: TextDecoration.lineThrough),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),

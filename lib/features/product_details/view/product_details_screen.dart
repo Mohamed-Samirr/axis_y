@@ -126,14 +126,24 @@ class _Loaded extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Text(formatEgp(product.price), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.price)),
-                      if (product.isDiscounted) ...[
-                        const SizedBox(width: 10),
-                        Text(formatEgp(product.oldPrice!), style: const TextStyle(color: AppColors.textSecondary, fontSize: 16, decoration: TextDecoration.lineThrough)),
-                      ],
-                    ],
+                  // Same guard as ProductCard: two prices at 24sp overflow this
+                  // row on a narrow phone once the text scale is turned up.
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(formatEgp(product.price), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.price)),
+                          if (product.isDiscounted) ...[
+                            const SizedBox(width: 10),
+                            Text(formatEgp(product.oldPrice!), style: const TextStyle(color: AppColors.textSecondary, fontSize: 16, decoration: TextDecoration.lineThrough)),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(product.description, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
