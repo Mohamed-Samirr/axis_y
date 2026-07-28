@@ -45,9 +45,9 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
         });
         return;
       }
-      // Rear camera: a selfie camera cannot frame a full standing body.
+      // Front camera: the user needs to see themselves while framing the pose.
       final camera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.back,
+        (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
       // `high` (720p) keeps uploads small; below it, segmentation quality drops.
