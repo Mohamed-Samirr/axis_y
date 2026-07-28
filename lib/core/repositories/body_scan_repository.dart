@@ -74,7 +74,7 @@ class ApiBodyScanRepository implements BodyScanRepository {
   }) async {
     try {
       final res = await _api.dio.post<Map<String, dynamic>>(
-        '/scan',
+        '${AppConfig.mainApiPrefix}/scan',
         data: await _form(frontImage, sideImage, heightCm),
       );
       return Success(Measurements.fromApi(res.data!));
@@ -91,7 +91,7 @@ class ApiBodyScanRepository implements BodyScanRepository {
   }) async {
     try {
       final res = await _api.dio.post<List<int>>(
-        '/scan-3d',
+        '${AppConfig.mainApiPrefix}/scan-3d',
         data: await _form(frontImage, sideImage, heightCm),
         options: Options(responseType: ResponseType.bytes),
       );

@@ -1,7 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 /// Global app configuration.
 ///
 /// [useMockData] is the single switch between the local mock data layer and
@@ -20,19 +16,24 @@ abstract class AppConfig {
   /// [FitResult] / [TryOnResult] shapes, so the UI is identical either way.
   static const bool useRealTryOn = bool.fromEnvironment('AXIS_REAL_TRYON');
 
-  /// Override at build time:
-  ///   flutter run --dart-define=AXIS_API_BASE=http://192.168.1.7:8000
+  /// The deployed backend, reachable from anywhere.
+  ///
+  /// This used to resolve per-platform to a loopback address (`10.0.2.2` on
+  /// Android, `localhost` elsewhere). Those only ever work for an emulator or a
+  /// desktop build talking to a server on the same machine — on a physical
+  /// phone `10.0.2.2` resolves to nothing, so every call failed with a
+  /// connection error and the UI showed "can't reach the server".
+  static const String _defaultApiBase = 'https://scalding-creme-broiling.ngrok-free.dev';
+
+  /// Override at build time, e.g. to point at a server on your own machine:
+  ///   flutter run --dart-define=AXIS_API_BASE=http://10.0.2.2:8000
   static const String _apiBaseOverride = String.fromEnvironment('AXIS_API_BASE');
 
-  static String get apiBaseUrl {
-    if (_apiBaseOverride.isNotEmpty) return _apiBaseOverride;
-    if (kIsWeb) return 'http://localhost:8000';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000'; // emulator loopback
-    return 'http://localhost:8000';
-  }
+  static String get apiBaseUrl =>
+      _apiBaseOverride.isNotEmpty ? _apiBaseOverride : _defaultApiBase;
 
-  /// The body scan engine (`/scan`, `/scan-3d`) is mounted at the root, the
-  /// gateway (products, fit-check, try-on) under this prefix.
+  /// Every endpoint the app calls lives under this prefix — the scan engine
+  /// (`/scan`, `/scan-3d`) included. Only `/health` sits at the root.
   static const String mainApiPrefix = '/api/v1';
 
   /// The scan pipeline runs MediaPipe + rembg on CPU. 5–30s is normal.
