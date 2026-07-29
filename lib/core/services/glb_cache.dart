@@ -1,9 +1,21 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config.dart';
+
+/// Every binary glTF starts with the 4-byte magic `glTF` (spec §4.4.1), which
+/// is enough to tell a real mesh from an HTML error or interstitial page that
+/// happened to arrive with a 200.
+@visibleForTesting
+bool isGlbHeader(List<int> head) =>
+    head.length >= 4 &&
+    head[0] == 0x67 && // g
+    head[1] == 0x6C && // l
+    head[2] == 0x54 && // T
+    head[3] == 0x46; //  F
 
 /// On-disk cache for try-on `.glb` meshes (guide §13).
 ///
@@ -59,11 +71,27 @@ class GlbCache {
       // wall-clock deadline is what actually bounds the wait.
       await _dio.download(url, part.path).timeout(downloadTimeout);
       if (!await part.exists() || await part.length() == 0) return null;
+      // A 200 does not guarantee a mesh: a proxy interstitial or an HTML error
+      // page downloads perfectly happily. Without this check that page would be
+      // renamed to .glb and *cached*, so every later retry would serve the same
+      // broken file from disk and the viewer would fail forever.
+      if (!await _isGlb(part)) {
+        await part.delete();
+        return null;
+      }
       await part.rename(file.path);
       await _evict(dir);
       return file.path;
     } catch (_) {
       return null;
+    }
+  }
+
+  static Future<bool> _isGlb(File file) async {
+    try {
+      return isGlbHeader(await file.openRead(0, 4).expand((chunk) => chunk).toList());
+    } catch (_) {
+      return false;
     }
   }
 
