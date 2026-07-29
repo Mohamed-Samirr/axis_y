@@ -18,10 +18,20 @@ bool isGlbHeader(List<int> head) =>
     head[2] == 0x54 && // T
     head[3] == 0x46; //  F
 
+/// Arguments for [_mergeGlbBytes]. [compute] takes a single value, and a record
+/// of raw bytes is clearer than positional list entries.
+class _MergeRequest {
+  final Uint8List body;
+  final Uint8List garment;
+  final bool fit;
+  const _MergeRequest(this.body, this.garment, this.fit);
+}
+
 /// [compute] entry point for [GlbCache.merged]. Composing a pair of 1–5MB
 /// meshes is enough parsing and copying to drop frames if it ran on the UI
 /// isolate, and it lands right as the user is dragging the model around.
-Uint8List? _mergeGlbBytes(List<Uint8List> pair) => mergeGlb(pair[0], pair[1]);
+Uint8List? _mergeGlbBytes(_MergeRequest request) =>
+    mergeGlb(request.body, request.garment, fitOverlayToBase: request.fit);
 
 /// On-disk cache for try-on `.glb` meshes (guide §13).
 ///
@@ -118,14 +128,24 @@ class GlbCache {
   /// OOM the guide warns about (§11) — so the two files are composed into one
   /// and a single viewer keeps rendering.
   ///
+  /// Set [fitGarment] when the two files did not come out of the same pipeline
+  /// and so share no units or origin — the engine's garment against the user's
+  /// own scanned avatar. Leave it off for two meshes the engine produced
+  /// together, which already line up and must not be moved.
+  ///
   /// Returns null when either file is missing or is not a glTF that can be
   /// composed; callers fall back to showing the garment alone.
-  Future<String?> merged(String bodyPath, String garmentPath) async {
+  Future<String?> merged(
+    String bodyPath,
+    String garmentPath, {
+    bool fitGarment = false,
+  }) async {
     try {
       final dir = await _dir();
       // Keyed on both inputs: a re-morph lands on a new garment path, and so
-      // on a new merged file, exactly like a re-morphed download does.
-      final out = File('${dir.path}/${_key('$bodyPath|$garmentPath')}.glb');
+      // on a new merged file, exactly like a re-morphed download does. The fit
+      // is part of the key because it changes the bytes.
+      final out = File('${dir.path}/${_key('$bodyPath|$garmentPath|$fitGarment')}.glb');
       if (await out.exists() && await out.length() > 0) return out.path;
 
       final body = File(bodyPath);
@@ -134,7 +154,11 @@ class GlbCache {
 
       final bytes = await compute(
         _mergeGlbBytes,
-        [await body.readAsBytes(), await garment.readAsBytes()],
+        _MergeRequest(
+          await body.readAsBytes(),
+          await garment.readAsBytes(),
+          fitGarment,
+        ),
       );
       if (bytes == null) return null;
 

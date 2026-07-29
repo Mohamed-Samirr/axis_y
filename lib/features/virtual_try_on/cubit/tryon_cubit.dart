@@ -274,24 +274,22 @@ class TryOnCubit extends Cubit<TryOnState> {
     final garmentUrl = result.garmentGlbUrl;
     final garment =
         garmentUrl == null || garmentUrl.isEmpty ? null : await _glb.resolve(garmentUrl);
-    final body = await _resolveBody(result.bodyGlbUrl);
+
+    // The morph engine's own body comes first when it returns one: it is posed
+    // and scaled in the same space as the garment it just morphed, so the two
+    // line up on their own and must not be touched. Falling back to the user's
+    // scanned avatar means two files from different places — same body, but no
+    // shared units or origin — which is the one case worth fitting.
+    final bodyUrl = result.bodyGlbUrl;
+    var body = bodyUrl == null || bodyUrl.isEmpty ? null : await _glb.resolve(bodyUrl);
+    var fitGarment = false;
+    if (body == null) {
+      body = await ModelStorage.resolve(_auth.currentUser?.measurements?.modelPath);
+      fitGarment = true;
+    }
 
     if (garment == null) return body;
     if (body == null) return garment;
-    return await _glb.merged(body, garment) ?? garment;
-  }
-
-  /// The body the garment is draped on.
-  ///
-  /// The morph engine's own body comes first when it returns one: it is posed
-  /// and scaled in the same space as the garment it just morphed, so the two
-  /// line up by construction. The user's scanned avatar is the fallback — it is
-  /// the same mesh the scan produced, which is what the engine morphs against.
-  Future<String?> _resolveBody(String? url) async {
-    if (url != null && url.isNotEmpty) {
-      final downloaded = await _glb.resolve(url);
-      if (downloaded != null) return downloaded;
-    }
-    return ModelStorage.resolve(_auth.currentUser?.measurements?.modelPath);
+    return await _glb.merged(body, garment, fitGarment: fitGarment) ?? garment;
   }
 }

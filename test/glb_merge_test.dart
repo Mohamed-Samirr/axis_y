@@ -195,5 +195,172 @@ void main() {
       expect(mergeGlb(_document(name: 'body', binLength: 8), html), isNull);
       expect(mergeGlb(html, _document(name: 'body', binLength: 8)), isNull);
     });
+
+    test('leaves both models where they were authored by default', () {
+      // No wrapper node, so nothing is scaled or moved.
+      expect((json['nodes'] as List).length, 4);
+      expect(
+        (json['nodes'] as List).any((n) => (n as Map)['name'] == 'axis-y-fit'),
+        isFalse,
+      );
+    });
   });
+
+  group('sceneBounds', () {
+    test('reads the box off the position accessors', () {
+      final doc = parseGlb(_box(min: [-1, 0, -1], max: [1, 2, 1]))!;
+      final bounds = sceneBounds(doc)!;
+
+      expect(bounds.min, [-1.0, 0.0, -1.0]);
+      expect(bounds.max, [1.0, 2.0, 1.0]);
+      expect(bounds.height, 2.0);
+      expect(bounds.width, 2.0);
+      expect(bounds.centre(1), 1.0);
+    });
+
+    test('applies the node transform the mesh hangs under', () {
+      final doc = parseGlb(_box(
+        min: [-1, 0, -1],
+        max: [1, 2, 1],
+        scale: [2, 3, 2],
+        translation: [10, 5, 0],
+      ))!;
+      final bounds = sceneBounds(doc)!;
+
+      expect(bounds.min, [8.0, 5.0, -2.0]);
+      expect(bounds.max, [12.0, 11.0, 2.0]);
+      expect(bounds.height, 6.0);
+    });
+
+    test('is null when nothing declares bounds', () {
+      final doc = parseGlb(_box(min: null, max: null))!;
+      expect(sceneBounds(doc), isNull);
+    });
+  });
+
+  group('fitTopToBody', () {
+    // A 2-unit-tall body centred on the origin, and a garment ten times too big
+    // sitting nowhere near it — the mismatch the fit exists to absorb.
+    final body = const GlbBounds([-0.5, 0, -0.2], [0.5, 2, 0.2]);
+    final garment = const GlbBounds([90, 100, 90], [110, 120, 110]);
+
+    test('scales the garment to a top-sized fraction of the body', () {
+      final fit = fitTopToBody(body, garment)!;
+      // 0.36 of a 2-unit body over a 20-unit garment.
+      expect(fit.scale, closeTo(0.036, 1e-9));
+    });
+
+    test('hangs it from the shoulders and centres it on the body', () {
+      final fit = fitTopToBody(body, garment)!;
+      final scale = fit.scale;
+
+      // Top edge lands a neck below the crown.
+      expect(fit.translation[1] + scale * garment.max[1], closeTo(2 - 0.26, 1e-9));
+      // Centred on the body in the two horizontal axes.
+      expect(fit.translation[0] + scale * garment.centre(0), closeTo(0, 1e-9));
+      expect(fit.translation[2] + scale * garment.centre(2), closeTo(0, 1e-9));
+    });
+
+    test('declines a box with no extent rather than dividing by zero', () {
+      const flat = GlbBounds([0, 0, 0], [0, 0, 0]);
+      expect(fitTopToBody(body, flat), isNull);
+      expect(fitTopToBody(flat, garment), isNull);
+      expect(fitTopToBody(null, garment), isNull);
+      expect(fitTopToBody(body, null), isNull);
+    });
+  });
+
+  group('mergeGlb with fitOverlayToBase', () {
+    test('parents the garment to a single scaling node', () {
+      final merged = mergeGlb(
+        _box(min: [-0.5, 0, -0.2], max: [0.5, 2, 0.2]),
+        _box(min: [90, 100, 90], max: [110, 120, 110]),
+        fitOverlayToBase: true,
+      )!;
+      final json = _jsonOf(merged);
+      final nodes = json['nodes'] as List;
+
+      final wrapper = nodes.last as Map<String, dynamic>;
+      expect(wrapper['name'], 'axis-y-fit');
+      expect(wrapper['children'], [1]);
+      expect((wrapper['scale'] as List).first, closeTo(0.036, 1e-9));
+
+      // The scene draws the body's root and the wrapper, not the raw garment.
+      expect((json['scenes'] as List).single['nodes'], [0, nodes.length - 1]);
+    });
+
+    test('ends up with the garment sitting on the body', () {
+      final merged = mergeGlb(
+        _box(min: [-0.5, 0, -0.2], max: [0.5, 2, 0.2]),
+        _box(min: [90, 100, 90], max: [110, 120, 110]),
+        fitOverlayToBase: true,
+      )!;
+      // Re-measuring the merged document is the real check: the garment must now
+      // live inside the body's box rather than a hundred units away from it.
+      final bounds = sceneBounds(parseGlb(merged))!;
+      expect(bounds.min[1], closeTo(0, 1e-9), reason: 'body still stands on zero');
+      expect(bounds.max[1], closeTo(2, 1e-9), reason: 'garment must not tower over it');
+      expect(bounds.max[0], lessThan(0.6));
+      expect(bounds.min[0], greaterThan(-0.6));
+    });
+
+    test('falls back to a plain merge when the base has no bounds', () {
+      final merged = mergeGlb(
+        _box(min: null, max: null),
+        _box(min: [90, 100, 90], max: [110, 120, 110]),
+        fitOverlayToBase: true,
+      )!;
+      final nodes = _jsonOf(merged)['nodes'] as List;
+      expect(nodes.any((n) => (n as Map)['name'] == 'axis-y-fit'), isFalse);
+    });
+  });
+}
+
+/// One box mesh under one node, with the accessor bounds a fit reads and an
+/// optional node transform to apply to them.
+Uint8List _box({
+  required List<double>? min,
+  required List<double>? max,
+  List<double>? scale,
+  List<double>? translation,
+}) {
+  final node = <String, dynamic>{'mesh': 0};
+  if (scale != null) node['scale'] = scale;
+  if (translation != null) node['translation'] = translation;
+
+  final accessor = <String, dynamic>{
+    'bufferView': 0,
+    'componentType': 5126,
+    'count': 8,
+    'type': 'VEC3',
+  };
+  if (min != null) accessor['min'] = min;
+  if (max != null) accessor['max'] = max;
+
+  return buildGlb(<String, dynamic>{
+    'asset': {'version': '2.0'},
+    'scene': 0,
+    'scenes': [
+      {
+        'nodes': [0],
+      },
+    ],
+    'nodes': [node],
+    'meshes': [
+      {
+        'primitives': [
+          {
+            'attributes': {'POSITION': 0},
+          },
+        ],
+      },
+    ],
+    'accessors': [accessor],
+    'bufferViews': [
+      {'buffer': 0, 'byteOffset': 0, 'byteLength': 4},
+    ],
+    'buffers': [
+      {'byteLength': 4},
+    ],
+  }, Uint8List.fromList([1, 2, 3, 4]));
 }
