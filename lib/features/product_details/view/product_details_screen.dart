@@ -122,7 +122,16 @@ class _Loaded extends StatelessWidget {
                     children: [
                       RatingStars(rating: product.rating, size: 18),
                       const SizedBox(width: 6),
-                      Text(context.tr('reviews_count', args: {'n': '${product.reviewCount}'}), style: const TextStyle(color: AppColors.textSecondary)),
+                      // The stars keep their fixed width whatever the text
+                      // scale, so the count next to them is what has to give.
+                      Flexible(
+                        child: Text(
+                          context.tr('reviews_count', args: {'n': '${product.reviewCount}'}),
+                          style: const TextStyle(color: AppColors.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -247,11 +256,24 @@ class _Loaded extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('reserve_in_store')))),
                           icon: const Icon(Icons.place_outlined, size: 18),
-                          label: Text(context.tr('reserve_in_store'), style: const TextStyle(fontSize: 13)),
+                          // Half a row each, so the label has to give way
+                          // rather than overflow once the text scale is turned
+                          // up — same for the compare button beside it.
+                          label: Text(
+                            context.tr('reserve_in_store'),
+                            style: const TextStyle(fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      _CompareButton(product: product),
+                      // Both halves must be flex children. The button theme
+                      // sets `minimumSize: Size.fromHeight(52)`, whose width is
+                      // `double.infinity` — a themed button placed bare in a Row
+                      // gets unbounded width and fails layout, which is what
+                      // blanked this whole page.
+                      Expanded(child: _CompareButton(product: product)),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -455,7 +477,12 @@ class _CompareButton extends StatelessWidget {
             }
           },
           icon: Icon(inCompare ? Icons.check : Icons.compare_arrows, size: 18),
-          label: Text(context.tr('add_to_compare'), style: const TextStyle(fontSize: 13)),
+          label: Text(
+            context.tr('add_to_compare'),
+            style: const TextStyle(fontSize: 13),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         );
       },
     );
