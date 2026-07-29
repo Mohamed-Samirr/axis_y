@@ -9,7 +9,6 @@ import '../../../core/repositories/catalog_repository.dart';
 import '../../../core/repositories/tryon_repository.dart';
 import '../../../core/services/glb_cache.dart';
 import '../../../core/services/session_service.dart';
-import '../../../core/utils/model_storage.dart';
 
 sealed class TryOnState extends Equatable {
   const TryOnState();
@@ -261,35 +260,18 @@ class TryOnCubit extends Cubit<TryOnState> {
     );
   }
 
-  /// The mesh to put on screen: the garment worn on a body, as one file.
+  /// Downloads (or reuses) the mesh for this result.
   ///
-  /// `model_viewer_plus` renders a single `src`, and the backend keeps the body
-  /// and the garment as separate meshes — which is why this used to show the
-  /// garment hanging in empty space. [GlbCache.merged] composes them instead of
-  /// opening a second viewer (guide §11).
+  /// `garment_glb_url` is a whole scene, not a garment: the backend merges the
+  /// morphed garment onto the body and hands back one `.glb` with both already
+  /// posed together. So it goes straight to the viewer — composing anything
+  /// client-side would only add a second body to a scene that has one.
   ///
-  /// Either half alone is still worth showing, so a missing or uncomposable
-  /// counterpart degrades to whichever mesh does exist.
+  /// `body_glb_url` is the bare body, and remains the fallback for a response
+  /// that carries no garment scene.
   Future<String?> _resolveMesh(TryOnResult result) async {
-    final garmentUrl = result.garmentGlbUrl;
-    final garment =
-        garmentUrl == null || garmentUrl.isEmpty ? null : await _glb.resolve(garmentUrl);
-
-    // The morph engine's own body comes first when it returns one: it is posed
-    // and scaled in the same space as the garment it just morphed, so the two
-    // line up on their own and must not be touched. Falling back to the user's
-    // scanned avatar means two files from different places — same body, but no
-    // shared units or origin — which is the one case worth fitting.
-    final bodyUrl = result.bodyGlbUrl;
-    var body = bodyUrl == null || bodyUrl.isEmpty ? null : await _glb.resolve(bodyUrl);
-    var fitGarment = false;
-    if (body == null) {
-      body = await ModelStorage.resolve(_auth.currentUser?.measurements?.modelPath);
-      fitGarment = true;
-    }
-
-    if (garment == null) return body;
-    if (body == null) return garment;
-    return await _glb.merged(body, garment, fitGarment: fitGarment) ?? garment;
+    final url = result.garmentGlbUrl ?? result.bodyGlbUrl;
+    if (url == null || url.isEmpty) return null;
+    return _glb.resolve(url);
   }
 }
