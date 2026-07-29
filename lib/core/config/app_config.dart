@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Global app configuration.
 ///
 /// [useMockData] is the single switch between the local mock data layer and
@@ -54,6 +56,17 @@ abstract class AppConfig {
 
   /// Below this, the scan result warns the user that the photos were unclear.
   static const double lowConfidenceThreshold = 0.85;
+
+  /// Asks `POST /scan` to also return the annotated debug frames (MediaPipe
+  /// skeleton + rembg contour), which the result screen then shows so a tester
+  /// can see *why* a measurement came out wrong.
+  ///
+  /// Off in release by default — it roughly doubles the response size and the
+  /// overlays are a QA tool, not a shopper-facing feature. Force it on for a
+  /// release/profile test build with:
+  ///   flutter run --release --dart-define=AXIS_ANNOTATED_SCAN=true
+  static const bool requestAnnotatedScan =
+      bool.fromEnvironment('AXIS_ANNOTATED_SCAN', defaultValue: kDebugMode);
 
   /// Simulated network latency range for mock data sources.
   static const Duration mockMinLatency = Duration(milliseconds: 300);

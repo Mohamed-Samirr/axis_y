@@ -127,6 +127,15 @@ class _ScanIntroScreenState extends State<ScanIntroScreen> {
             ),
             const SizedBox(height: 12),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.accessibility, size: 18, color: AppColors.textSecondary),
+                const SizedBox(width: 8),
+                Expanded(child: Text(context.tr('scan_pose_tip'), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
               children: [
                 const Icon(Icons.schedule, size: 18, color: AppColors.textSecondary),
                 const SizedBox(width: 8),

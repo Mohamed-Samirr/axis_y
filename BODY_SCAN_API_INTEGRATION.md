@@ -32,6 +32,10 @@ CORS is `allow_origins=["*"]`, so there is nothing to configure on the server fo
 | `front_image` | file | full body, head to feet, JPEG/PNG/WebP/AVIF |
 | `side_image` | file | side profile, same framing |
 | `height_cm` | form field, float | must be `100 <= h <= 250`, else HTTP 422 |
+| `return_annotated` | form field, `"true"` | **`/scan` only, optional.** Adds the annotated debug frames to the response |
+
+Weight is *not* an input — the pipeline estimates it. The intro screen collects it as an
+optional field and the Cubit overrides `weight_kg_estimate` with it locally.
 
 **`POST /scan` — 200 response:**
 
@@ -53,6 +57,28 @@ CORS is `allow_origins=["*"]`, so there is nothing to configure on the server fo
 
 Every value is a **double**, not an int. `confidence` is a 0–1 fraction, at the top level —
 not inside `measurements`.
+
+With `return_annotated=true` the same body also carries the debug frames — MediaPipe's
+skeleton drawn over the rembg body contour — as **data URIs**, not bare base64:
+
+```json
+  "annotated_images": {
+    "front": "data:image/jpeg;base64,/9j/4AAQ…",
+    "side":  "data:image/jpeg;base64,/9j/4AAQ…"
+  }
+```
+
+Client side this is [scan_analysis.dart](lib/core/models/scan_analysis.dart): the prefix is
+stripped, the bytes are decoded, and a malformed frame degrades to `null` rather than
+failing a scan that measured fine. The frames are held in memory for the life of the result
+screen and never written to disk — same rule as the source photos (F4). Requesting them is
+gated on `AppConfig.requestAnnotatedScan`, which is debug-only unless you pass
+`--dart-define=AXIS_ANNOTATED_SCAN=true`, since they roughly double the response size.
+
+**Reading them:** a chest measured wrist-to-wrist (≈400cm) means the user shot a T-pose —
+the overlay shows the landmark line running out to the hands. Arms should hang slightly
+away from the body in an A-pose, with the whole body from head to heels inside the frame.
+That guidance is on the intro screen as `scan_pose_tip` and repeats under the frames.
 
 **`POST /scan-3d` — 200 response:** raw bytes, `Content-Type: model/gltf-binary`,
 `Content-Disposition: attachment; filename=body_model.glb`. **No measurements are returned

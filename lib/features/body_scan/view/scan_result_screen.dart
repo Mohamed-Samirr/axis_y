@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -163,6 +165,10 @@ class _ResultView extends StatelessWidget {
                   ],
                 ),
               ),
+              if (state.annotatedFront != null || state.annotatedSide != null) ...[
+                const SizedBox(height: 24),
+                _AnnotatedFrames(front: state.annotatedFront, side: state.annotatedSide),
+              ],
             ],
           ),
         ),
@@ -187,6 +193,120 @@ class _ResultView extends StatelessWidget {
           Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
+    );
+  }
+}
+
+/// The pipeline's own view of the photos: MediaPipe's skeleton over the rembg
+/// body contour. Shown so a wrong measurement can be diagnosed on the spot —
+/// a chest that spans wrist to wrist is obvious here and nowhere else.
+///
+/// The bytes live in memory for the life of this screen only; nothing is
+/// written to disk (privacy rule F4).
+class _AnnotatedFrames extends StatelessWidget {
+  final Uint8List? front;
+  final Uint8List? side;
+  const _AnnotatedFrames({this.front, this.side});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(context.tr('scan_annotated_title'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(context.tr('scan_annotated_hint'), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (front != null) Expanded(child: _Frame(bytes: front!, labelKey: 'photo_front')),
+            if (front != null && side != null) const SizedBox(width: 12),
+            if (side != null) Expanded(child: _Frame(bytes: side!, labelKey: 'photo_side')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.tips_and_updates_outlined, size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(context.tr('scan_pose_tip'), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _Frame extends StatelessWidget {
+  final Uint8List bytes;
+  final String labelKey;
+  const _Frame({required this.bytes, required this.labelKey});
+
+  /// Full-screen and zoomable: the thumbnails are far too small to check where
+  /// a landmark actually landed.
+  void _openFullScreen(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                maxScale: 5,
+                child: Center(child: _image(fit: BoxFit.contain)),
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(dialogContext).padding.top + 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _image({required BoxFit fit}) => Image.memory(
+        bytes,
+        fit: fit,
+        // Decoded bytes can still be a truncated/garbled JPEG — never let that
+        // throw over the measurements the user came here for.
+        errorBuilder: (context, _, __) => Center(
+          child: Text(
+            context.tr('image_failed'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => _openFullScreen(context),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              color: AppColors.navy.withValues(alpha: 0.06),
+              child: AspectRatio(aspectRatio: 3 / 4, child: _image(fit: BoxFit.contain)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(context.tr(labelKey), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+      ],
     );
   }
 }

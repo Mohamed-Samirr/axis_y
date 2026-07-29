@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
 import '../config/app_config.dart';
+import '../models/scan_analysis.dart';
 import '../models/user.dart';
 import '../network/api_client.dart';
 import '../services/session_service.dart';
@@ -28,7 +29,10 @@ abstract class BodyScanRepository {
   /// Analyzes the two captured photos. The caller owns [frontImage] /
   /// [sideImage] and MUST delete them once this returns — the images are never
   /// persisted (privacy rule F4).
-  Future<Result<Measurements>> analyze({
+  ///
+  /// Carries the annotated debug frames back with the measurements when
+  /// [AppConfig.requestAnnotatedScan] is on.
+  Future<Result<ScanAnalysis>> analyze({
     required File frontImage,
     required File sideImage,
     required double heightCm,
@@ -52,7 +56,10 @@ class ApiBodyScanRepository implements BodyScanRepository {
   final ApiClient _api;
   ApiBodyScanRepository(this._api);
 
-  Future<FormData> _form(File front, File side, double heightCm) async => FormData.fromMap({
+  /// [annotated] only applies to `/scan`: `/scan-3d` answers with raw GLB
+  /// bytes, so there is no JSON to carry debug frames in.
+  Future<FormData> _form(File front, File side, double heightCm, {bool annotated = false}) async =>
+      FormData.fromMap({
         'front_image': await MultipartFile.fromFile(
           front.path,
           filename: 'front.jpg',
@@ -64,10 +71,11 @@ class ApiBodyScanRepository implements BodyScanRepository {
           contentType: MediaType('image', 'jpeg'),
         ),
         'height_cm': heightCm.toString(),
+        if (annotated) 'return_annotated': 'true',
       });
 
   @override
-  Future<Result<Measurements>> analyze({
+  Future<Result<ScanAnalysis>> analyze({
     required File frontImage,
     required File sideImage,
     required double heightCm,
@@ -75,9 +83,14 @@ class ApiBodyScanRepository implements BodyScanRepository {
     try {
       final res = await _api.dio.post<Map<String, dynamic>>(
         '${AppConfig.mainApiPrefix}/scan',
-        data: await _form(frontImage, sideImage, heightCm),
+        data: await _form(
+          frontImage,
+          sideImage,
+          heightCm,
+          annotated: AppConfig.requestAnnotatedScan,
+        ),
       );
-      return Success(Measurements.fromApi(res.data!));
+      return Success(ScanAnalysis.fromApi(res.data!));
     } catch (e) {
       return Failure(mapDioError(e));
     }
@@ -128,22 +141,25 @@ class ApiBodyScanRepository implements BodyScanRepository {
 /// returns the seeded measurements so the whole flow works with no backend.
 class MockBodyScanRepository implements BodyScanRepository {
   @override
-  Future<Result<Measurements>> analyze({
+  Future<Result<ScanAnalysis>> analyze({
     required File frontImage,
     required File sideImage,
     required double heightCm,
   }) async {
     // Simulates 2–3s AI processing.
     await Future.delayed(const Duration(milliseconds: 2500));
-    return Success(Measurements(
-      chest: 92,
-      waist: 78,
-      hips: 100,
-      height: heightCm.round(),
-      weight: 74,
-      shoulderCm: 44.2,
-      inseamCm: 79.5,
-      confidence: 0.97,
+    // No annotated frames offline — there is no pipeline to draw them.
+    return Success(ScanAnalysis(
+      measurements: Measurements(
+        chest: 92,
+        waist: 78,
+        hips: 100,
+        height: heightCm.round(),
+        weight: 74,
+        shoulderCm: 44.2,
+        inseamCm: 79.5,
+        confidence: 0.97,
+      ),
     ));
   }
 

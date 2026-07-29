@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/models/scan_analysis.dart';
 import '../../../core/models/user.dart';
 import '../../../core/repositories/auth_repository.dart';
 import '../../../core/repositories/body_scan_repository.dart';
@@ -17,7 +19,18 @@ class BodyScanState extends Equatable {
   final Measurements? measurements;
   final String? error;
 
-  const BodyScanState({this.status = ScanStatus.idle, this.measurements, this.error});
+  /// Decoded debug frames from the pipeline, present only when the build asked
+  /// for them ([AppConfig.requestAnnotatedScan]). Display-only, never saved.
+  final Uint8List? annotatedFront;
+  final Uint8List? annotatedSide;
+
+  const BodyScanState({
+    this.status = ScanStatus.idle,
+    this.measurements,
+    this.error,
+    this.annotatedFront,
+    this.annotatedSide,
+  });
 
   bool get isBusy =>
       status == ScanStatus.idle ||
@@ -26,7 +39,7 @@ class BodyScanState extends Equatable {
       status == ScanStatus.buildingModel;
 
   @override
-  List<Object?> get props => [status, measurements, error];
+  List<Object?> get props => [status, measurements, error, annotatedFront, annotatedSide];
 }
 
 /// ViewModel for the body scan. Photos are never persisted — they are deleted
@@ -60,11 +73,13 @@ class BodyScanCubit extends Cubit<BodyScanState> {
         heightCm: input.heightCm,
       );
       await result.when(
-        success: (raw) async {
+        success: (analysis) async {
           // The API only ever *estimates* weight from the photos — if the user
           // told us theirs on the intro screen, that is the better number.
-          final m = input.weightKg == null ? raw : raw.copyWith(weight: input.weightKg!.round());
-          _safeEmit(BodyScanState(status: ScanStatus.buildingModel, measurements: m));
+          final m = input.weightKg == null
+              ? analysis.measurements
+              : analysis.measurements.copyWith(weight: input.weightKg!.round());
+          _safeEmit(_stateFor(ScanStatus.buildingModel, m, analysis));
           final model = await _repo.generateModel(
             frontImage: front,
             sideImage: side,
@@ -72,9 +87,10 @@ class BodyScanCubit extends Cubit<BodyScanState> {
           );
           // A missing 3D model is not a scan failure — the result screen falls
           // back to the painted mannequin. Measurements are the product.
-          _safeEmit(BodyScanState(
-            status: ScanStatus.done,
-            measurements: m.copyWith(modelPath: model.valueOrNull),
+          _safeEmit(_stateFor(
+            ScanStatus.done,
+            m.copyWith(modelPath: model.valueOrNull),
+            analysis,
           ));
         },
         failure: (msg) async => _safeEmit(BodyScanState(status: ScanStatus.error, error: msg)),
@@ -86,6 +102,15 @@ class BodyScanCubit extends Cubit<BodyScanState> {
       await _safeDelete(side);
     }
   }
+
+  /// Keeps the annotated frames attached across the two success emits — they
+  /// come with the measurements but must survive the 3D-model step.
+  BodyScanState _stateFor(ScanStatus status, Measurements m, ScanAnalysis analysis) => BodyScanState(
+        status: status,
+        measurements: m,
+        annotatedFront: analysis.annotatedFront,
+        annotatedSide: analysis.annotatedSide,
+      );
 
   Future<void> _safeDelete(File f) async {
     try {
