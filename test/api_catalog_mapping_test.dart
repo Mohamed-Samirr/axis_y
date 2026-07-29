@@ -102,12 +102,20 @@ void main() {
     });
 
     test('survives a product with no variants at all', () {
+      // The live seeded product: sizes registered server-side for the fit
+      // engine, but no variant rows, so ProductResponse.variants is [].
       final p = productFromApi(product());
 
+      // Sizes stay honestly empty — there is no variant to pin one to.
       expect(p.sizes, isEmpty);
-      expect(p.colors, isEmpty);
       expect(p.price, 0);
       expect(p.name, 'Basic Tee');
+
+      // Colours and images must NOT be empty: the try-on mannequin reads
+      // colors[colorIndex] on its default path and the grid reads images.first,
+      // so an empty list here is a crash, not a blank.
+      expect(p.colors, hasLength(1));
+      expect(p.images, ['']);
     });
   });
 

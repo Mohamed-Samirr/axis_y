@@ -159,14 +159,23 @@ Product productFromApi(Map<String, dynamic> json) {
   final prices = variants.map((v) => (v['price'] as num?)?.toDouble()).nonNulls.toList();
   final brand = json['brand'] as String?;
 
+  final images = colors.values.map((c) => c.image).where((i) => i.isNotEmpty).toList();
+
   return Product(
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? '',
     storeId: json['store_id'] as String? ?? '',
     storeName: brand == null || brand.isEmpty ? (json['sku'] as String? ?? '') : brand,
     price: prices.isEmpty ? 0 : prices.reduce((a, b) => a < b ? a : b),
-    images: colors.values.map((c) => c.image).where((i) => i.isNotEmpty).toList(),
-    colors: colors.values.toList(),
+    // Never empty. A product with no variants — which is what the API returns
+    // when a store registered sizes but no colour/size rows — would otherwise
+    // blow up every `images.first` / `colors[0]` in the UI, and the mannequin
+    // on the try-on screen reads `colors[colorIndex]` on its default path.
+    // An empty url is a supported "no image" in [AppNetworkImage].
+    images: images.isEmpty ? const [''] : images,
+    colors: colors.isEmpty ? const [_defaultColor] : colors.values.toList(),
+    // Sizes stay honest: with no variants there is no size the client may pin,
+    // and `POST /try-on` then has to auto-select. See [ProductSize.variantId].
     sizes: sizes.values.toList(),
     material: '',
     description: '',
@@ -179,13 +188,19 @@ Product productFromApi(Map<String, dynamic> json) {
   );
 }
 
+const int _navy = 0xFF1B2A4A;
+
+/// Stands in for a product whose variants carry no colour, so the swatch row
+/// and the painted mannequin always have something to render.
+const _defaultColor = ProductColor(name: '—', hex: _navy, image: '');
+
 /// `"#1A2B3C"` / `"1A2B3C"` -> opaque ARGB. Falls back to the app's navy so a
 /// missing or malformed colour never renders as an invisible swatch.
 int _parseHex(String? hex) {
-  if (hex == null) return 0xFF1B2A4A;
+  if (hex == null) return _navy;
   final digits = hex.replaceFirst('#', '').trim();
   final value = int.tryParse(digits, radix: 16);
-  if (value == null) return 0xFF1B2A4A;
+  if (value == null) return _navy;
   return digits.length <= 6 ? 0xFF000000 | value : value;
 }
 

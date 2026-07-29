@@ -78,7 +78,43 @@ class MockSeed {
     const Review(user: 'كريم', rating: 5, text: 'التجربة الافتراضية ساعدتني أختار المقاس', date: '2026-05-20', helpful: 12),
   ];
 
-  static final List<Product> products = _buildProducts();
+  /// Appended, never prepended: the mock order history below indexes into this
+  /// list by position.
+  static final List<Product> products = [..._buildProducts(), testProduct];
+
+  /// Points at the **real** product in the backend database, so the try-on
+  /// endpoints can be exercised without waiting on the catalog wiring — tapping
+  /// it sends the gateway a `product_id` it actually knows.
+  ///
+  /// It carries no `variantId` on any size because the backend product has no
+  /// variants yet; `POST /try-on` therefore auto-selects, and the size that
+  /// comes back on `selected_size_label` is the one the screen ends up showing,
+  /// whichever chip was tapped.
+  static final Product testProduct = Product(
+    // Dashed form, as `GET /products` returns it.
+    id: '016174c8-8e75-4542-b0fa-e1eb1c2220de',
+    name: 'test',
+    storeId: stores.first.id,
+    storeName: 'Axis Y',
+    price: 499,
+    images: [_photo(4115035), _photo(9775889), _photo(4066288)],
+    colors: [ProductColor(name: 'أسود', hex: 0xFF111111, image: _photo(4115035))],
+    // The five sizes the backend holds for this product (XS–XL, no XXL).
+    sizes: const [
+      ProductSize(label: 'XS', chest: 88, waist: 74, length: 62),
+      ProductSize(label: 'S', chest: 94, waist: 80, length: 65),
+      ProductSize(label: 'M', chest: 100, waist: 86, length: 68),
+      ProductSize(label: 'L', chest: 106, waist: 92, length: 71),
+      ProductSize(label: 'XL', chest: 112, waist: 98, length: 74),
+    ],
+    material: 'قطن 100%',
+    description: 'Axis Y Core T-Shirt — منتج التيست المربوط بقاعدة بيانات الباك اند.',
+    rating: 5,
+    reviewCount: 1,
+    category: ProductCategory.tops,
+    tryOnAvailable: true,
+    isNew: true,
+  );
 
   /// Three Pexels photo ids per product, in the same order as [_buildProducts]'s
   /// table. Each row was picked from a search for that exact garment.

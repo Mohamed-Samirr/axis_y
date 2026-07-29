@@ -127,9 +127,14 @@ class TryOnCubit extends Cubit<TryOnState> {
         final measurements = _auth.currentUser?.measurements ??
             const Measurements(chest: 92, waist: 78, hips: 100, height: 172, weight: 74);
         final recommended = measurements.recommendedSize;
+        // Empty is normal, not an error: a backend product with no variants
+        // exposes no sizes to pin, and `/try-on` then auto-selects from the
+        // ladder it holds server-side. The label comes back on the response.
+        // Reading `.first` here instead is what turned such a product into a
+        // permanent loading spinner.
         final size = product.sizes.any((s) => s.label == recommended)
             ? recommended
-            : product.sizes.first.label;
+            : (product.sizes.firstOrNull?.label ?? '');
         _safeEmit(TryOnReady(
           product: product,
           colorIndex: 0,

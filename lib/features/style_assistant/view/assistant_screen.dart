@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/di/injector.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../core/models/catalog.dart';
 import '../../../core/models/commerce.dart';
 import '../../../core/repositories/assistant_repository.dart';
 import '../../../core/router/routes.dart';
@@ -123,7 +124,11 @@ class _OutfitResult extends StatelessWidget {
           onPressed: () {
             final cart = context.read<CartCubit>();
             for (final p in state.outfit) {
-              final size = p.sizes.firstWhere((s) => s.available, orElse: () => p.sizes.first);
+              // A backend product with no variants has no sizes to offer.
+              final size = p.sizes.firstWhere(
+                (s) => s.available,
+                orElse: () => p.sizes.firstOrNull ?? const ProductSize(label: '', chest: 0, waist: 0, length: 0),
+              );
               cart.add(CartItem(product: p, color: p.colors.first, size: size.label));
             }
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('added_to_cart'))));

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../config/app_config.dart';
 import '../models/catalog.dart';
 import '../models/fit.dart';
@@ -23,6 +25,35 @@ abstract class TryOnRepository {
     required String sizeLabel,
     bool autoSelectSize = false,
   });
+}
+
+/// Body for `POST /try-on`.
+///
+/// `TryOnRequest` has **no `size_label` field**: a specific size is requested by
+/// its `product_variant_id`, and `product_id` + `auto_select_size` is the "you
+/// pick" path. Sending `size_label` — as this used to — is silently dropped by
+/// the server, so every size toggle came back auto-selected instead.
+///
+/// With no variant id there is nothing to pin a size to, so this falls back to
+/// auto-selection rather than claiming a size the request cannot express. That
+/// is the live situation today: the seeded product has `variants: []`, so the
+/// backend picks from the size ladder it holds and reports it back on
+/// `selected_size_label`.
+@visibleForTesting
+Map<String, dynamic> tryOnRequestBody({
+  required String scanId,
+  required Product product,
+  required String sizeLabel,
+  required bool autoSelectSize,
+}) {
+  final variantId =
+      product.sizes.where((s) => s.label == sizeLabel).map((s) => s.variantId).firstOrNull;
+  final pinSize = !autoSelectSize && variantId != null;
+  return <String, dynamic>{
+    'scan_id': scanId,
+    if (pinSize) 'product_variant_id': variantId else 'product_id': product.id,
+    'auto_select_size': !pinSize,
+  };
 }
 
 class ApiTryOnRepository implements TryOnRepository {
@@ -75,25 +106,14 @@ class ApiTryOnRepository implements TryOnRepository {
     bool autoSelectSize = false,
   }) async {
     try {
-      // `TryOnRequest` has no `size_label` field: a specific size is requested
-      // by its `product_variant_id`, and `product_id` + auto_select_size is the
-      // "you pick" path. Sending size_label instead — as this did — is silently
-      // dropped by the server, so every toggle came back auto-selected.
-      final variantId = product.sizes
-          .where((s) => s.label == sizeLabel)
-          .map((s) => s.variantId)
-          .firstOrNull;
-      // With no variant id there is nothing to pin the size to, so fall back to
-      // letting the backend choose rather than lying about which size this is.
-      final pinSize = !autoSelectSize && variantId != null;
-
       final res = await _api.dio.post<Map<String, dynamic>>(
         '${AppConfig.mainApiPrefix}/try-on',
-        data: <String, dynamic>{
-          'scan_id': scanId,
-          if (pinSize) 'product_variant_id': variantId else 'product_id': product.id,
-          'auto_select_size': !pinSize,
-        },
+        data: tryOnRequestBody(
+          scanId: scanId,
+          product: product,
+          sizeLabel: sizeLabel,
+          autoSelectSize: autoSelectSize,
+        ),
         options: tryOnOptions(),
       );
       final result = TryOnResult.fromApi(res.data ?? const {});
@@ -156,7 +176,10 @@ class MockTryOnRepository implements TryOnRepository {
     final m = _auth.currentUser?.measurements ?? _fallback;
     final size = product.sizes.firstWhere(
       (s) => s.label == sizeLabel,
-      orElse: () => product.sizes.first,
+      // A product with no size ladder has nothing to compare against, so the
+      // ease comes out as pure body measurement and reads "too tight" — which
+      // is the honest answer offline.
+      orElse: () => product.sizes.firstOrNull ?? const ProductSize(label: '', chest: 0, waist: 0, length: 0),
     );
 
     final regions = [
