@@ -29,6 +29,7 @@ import '../../features/store_portal/view/register_store_screen.dart';
 import '../../features/style_assistant/view/assistant_screen.dart';
 import '../../features/style_preferences/view/preferences_screen.dart';
 import '../../features/virtual_try_on/view/tryon_screen.dart';
+import '../../features/virtual_try_on/view/tryon_tab_screen.dart';
 import '../../features/wishlist/view/wishlist_screen.dart';
 import '../models/commerce.dart';
 import 'routes.dart';
@@ -103,6 +104,9 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(path: Routes.orders, parentNavigatorKey: _rootKey, builder: (_, __) => const OrdersScreen()),
     GoRoute(path: Routes.compare, parentNavigatorKey: _rootKey, builder: (_, __) => const CompareScreen()),
+    // The style assistant used to *be* the try-on tab; now that the tab hosts
+    // the 3D viewer, it lives here as a pushed page reached from the profile.
+    GoRoute(path: Routes.assistant, parentNavigatorKey: _rootKey, builder: (_, __) => const AssistantScreen()),
     GoRoute(path: Routes.loyalty, parentNavigatorKey: _rootKey, builder: (_, __) => const LoyaltyScreen()),
     GoRoute(path: Routes.settings, parentNavigatorKey: _rootKey, builder: (_, __) => const SettingsScreen()),
     GoRoute(path: Routes.notifications, parentNavigatorKey: _rootKey, builder: (_, __) => const NotificationsScreen()),
@@ -125,7 +129,7 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
         StatefulShellBranch(
-          routes: [GoRoute(path: Routes.tryonTab, builder: (_, __) => const AssistantScreen())],
+          routes: [GoRoute(path: Routes.tryonTab, builder: (_, __) => const TryOnTabScreen())],
         ),
         StatefulShellBranch(
           routes: [GoRoute(path: Routes.wishlist, builder: (_, __) => const WishlistScreen())],

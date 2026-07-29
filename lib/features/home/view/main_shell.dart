@@ -30,7 +30,7 @@ class MainShell extends StatelessWidget {
           destinations: [
             NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home, color: AppColors.navy), label: context.tr('nav_home')),
             NavigationDestination(icon: const Icon(Icons.search_outlined), selectedIcon: const Icon(Icons.search, color: AppColors.navy), label: context.tr('nav_explore')),
-            NavigationDestination(icon: const Icon(Icons.auto_awesome_outlined), selectedIcon: const Icon(Icons.auto_awesome, color: AppColors.navy), label: context.tr('nav_tryon')),
+            NavigationDestination(icon: const Icon(Icons.view_in_ar_outlined), selectedIcon: const Icon(Icons.view_in_ar, color: AppColors.navy), label: context.tr('nav_tryon')),
             NavigationDestination(icon: const Icon(Icons.favorite_outline), selectedIcon: const Icon(Icons.favorite, color: AppColors.navy), label: context.tr('nav_wishlist')),
             NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person, color: AppColors.navy), label: context.tr('nav_profile')),
           ],

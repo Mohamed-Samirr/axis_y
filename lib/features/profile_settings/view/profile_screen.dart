@@ -112,7 +112,7 @@ class ProfileScreen extends StatelessWidget {
           _link(context, Icons.receipt_long_outlined, context.tr('my_orders'), () => context.push(Routes.orders)),
           _link(context, Icons.favorite_border, context.tr('wishlist'), () => context.go(Routes.wishlist)),
           _link(context, Icons.compare_arrows, context.tr('compare_title'), () => context.push(Routes.compare)),
-          _link(context, Icons.auto_awesome_outlined, context.tr('assistant'), () => context.go(Routes.tryonTab)),
+          _link(context, Icons.auto_awesome_outlined, context.tr('assistant'), () => context.push(Routes.assistant)),
           _link(context, Icons.location_on_outlined, context.tr('saved_addresses'), () => _snack(context, 'saved_addresses')),
           _link(context, Icons.storefront_outlined, context.tr('register_store'), () => context.push(Routes.registerStore)),
           _link(context, Icons.settings_outlined, context.tr('settings'), () => context.push(Routes.settings)),
