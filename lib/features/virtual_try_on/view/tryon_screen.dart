@@ -1,3 +1,4 @@
+import 'dart:io' show File;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -103,11 +104,7 @@ class _Scene extends StatelessWidget {
         Expanded(
           child: Stack(
             children: [
-              Positioned.fill(
-                child: state.meshPath != null
-                    ? _MeshViewer(path: state.meshPath!)
-                    : Center(child: _Mannequin(color: Color(state.color.hex))),
-              ),
+              Positioned.fill(child: _Stage(state: state)),
               // The morph runs server-side; the previous mesh stays visible
               // under the veil so a size toggle never blanks the screen.
               if (state.morphing) const Positioned.fill(child: _MorphingVeil()),
@@ -150,6 +147,22 @@ class _Scene extends StatelessWidget {
   }
 }
 
+/// What fills the scene: the morphed mesh when one is on disk, the painted
+/// mannequin otherwise. A missing mesh is never a failure state — the user
+/// still gets a garment to look at and a verdict to read.
+class _Stage extends StatelessWidget {
+  final TryOnReady state;
+  const _Stage({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final mannequin = Center(child: _Mannequin(color: Color(state.color.hex)));
+    final path = state.meshPath;
+    if (path == null) return mannequin;
+    return _MeshViewer(path: path, fallback: mannequin);
+  }
+}
+
 /// Renders the morphed `.glb` handed back by `POST /try-on`.
 ///
 /// Keyed on the file path so a size toggle tears the old viewer down instead of
@@ -157,18 +170,34 @@ class _Scene extends StatelessWidget {
 /// size is how low-end Androids OOM (guide §11).
 class _MeshViewer extends StatelessWidget {
   final String path;
-  const _MeshViewer({required this.path});
+
+  /// Shown while the file is being checked for, and instead of the viewer when
+  /// it turns out not to be there.
+  final Widget fallback;
+
+  const _MeshViewer({required this.path, required this.fallback});
 
   @override
   Widget build(BuildContext context) {
-    return ModelViewer(
-      key: ValueKey(path),
-      src: 'file://$path',
-      alt: context.tr('tryon_title'),
-      cameraControls: true, // drag = rotate, pinch = zoom
-      autoRotate: false,
-      disableZoom: false,
-      backgroundColor: _sceneBackground,
+    // The mesh is resolved a moment before this builds and the file can be gone
+    // by then — see [GlbCache]. `model_viewer_plus` reads it inside its own
+    // proxy's request handler, so a missing file surfaces as an *unhandled*
+    // async PathNotFoundException and the viewer just stays blank. Checking
+    // first is what turns that into the mannequin.
+    return FutureBuilder<bool>(
+      future: File(path).exists(),
+      builder: (context, snapshot) {
+        if (snapshot.data != true) return fallback;
+        return ModelViewer(
+          key: ValueKey(path),
+          src: 'file://$path',
+          alt: context.tr('tryon_title'),
+          cameraControls: true, // drag = rotate, pinch = zoom
+          autoRotate: false,
+          disableZoom: false,
+          backgroundColor: _sceneBackground,
+        );
+      },
     );
   }
 }

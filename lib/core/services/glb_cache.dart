@@ -25,6 +25,15 @@ bool isGlbHeader(List<int> head) =>
 /// backend versions the URL when it re-morphs, so a changed mesh naturally
 /// lands on a new key.
 class GlbCache {
+  /// Deliberately *not* under `getTemporaryDirectory()`.
+  ///
+  /// Android empties an app's cache directory whenever it likes — including
+  /// while the app is in the foreground — and it does: a mesh resolved seconds
+  /// earlier was already gone by the time `model_viewer_plus` asked its proxy
+  /// for it, so the proxy threw `PathNotFoundException` from inside an async
+  /// callback nothing can catch and the try-on screen sat on an empty black
+  /// stage. Nothing here needs the OS to reclaim space either — [maxFiles]
+  /// already bounds the directory.
   static const _dirName = 'glb_cache';
 
   /// GLBs are large; keep the directory bounded. Oldest files go first.
@@ -48,7 +57,7 @@ class GlbCache {
             ));
 
   Future<Directory> _dir() async {
-    final base = await getTemporaryDirectory();
+    final base = await getApplicationSupportDirectory();
     final dir = Directory('${base.path}/$_dirName');
     if (!await dir.exists()) await dir.create(recursive: true);
     return dir;
