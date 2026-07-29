@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config.dart';
+import '../utils/glb_merge.dart';
 
 /// Every binary glTF starts with the 4-byte magic `glTF` (spec §4.4.1), which
 /// is enough to tell a real mesh from an HTML error or interstitial page that
@@ -16,6 +17,11 @@ bool isGlbHeader(List<int> head) =>
     head[1] == 0x6C && // l
     head[2] == 0x54 && // T
     head[3] == 0x46; //  F
+
+/// [compute] entry point for [GlbCache.merged]. Composing a pair of 1–5MB
+/// meshes is enough parsing and copying to drop frames if it ran on the UI
+/// isolate, and it lands right as the user is dragging the model around.
+Uint8List? _mergeGlbBytes(List<Uint8List> pair) => mergeGlb(pair[0], pair[1]);
 
 /// On-disk cache for try-on `.glb` meshes (guide §13).
 ///
@@ -101,6 +107,46 @@ class GlbCache {
       return isGlbHeader(await file.openRead(0, 4).expand((chunk) => chunk).toList());
     } catch (_) {
       return false;
+    }
+  }
+
+  /// One mesh holding both [bodyPath] and [garmentPath], so the garment is worn
+  /// rather than floating on its own.
+  ///
+  /// `model_viewer_plus` renders a single `src`. Stacking a second viewer would
+  /// mean a second webview holding a second multi-megabyte mesh, which is the
+  /// OOM the guide warns about (§11) — so the two files are composed into one
+  /// and a single viewer keeps rendering.
+  ///
+  /// Returns null when either file is missing or is not a glTF that can be
+  /// composed; callers fall back to showing the garment alone.
+  Future<String?> merged(String bodyPath, String garmentPath) async {
+    try {
+      final dir = await _dir();
+      // Keyed on both inputs: a re-morph lands on a new garment path, and so
+      // on a new merged file, exactly like a re-morphed download does.
+      final out = File('${dir.path}/${_key('$bodyPath|$garmentPath')}.glb');
+      if (await out.exists() && await out.length() > 0) return out.path;
+
+      final body = File(bodyPath);
+      final garment = File(garmentPath);
+      if (!await body.exists() || !await garment.exists()) return null;
+
+      final bytes = await compute(
+        _mergeGlbBytes,
+        [await body.readAsBytes(), await garment.readAsBytes()],
+      );
+      if (bytes == null) return null;
+
+      // Same two-step write as a download: a half-written merge must never be
+      // mistaken for a finished one on the next launch.
+      final part = File('${out.path}.part');
+      await part.writeAsBytes(bytes, flush: true);
+      await part.rename(out.path);
+      await _evict(dir);
+      return out.path;
+    } catch (_) {
+      return null;
     }
   }
 

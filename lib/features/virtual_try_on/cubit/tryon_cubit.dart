@@ -9,6 +9,7 @@ import '../../../core/repositories/catalog_repository.dart';
 import '../../../core/repositories/tryon_repository.dart';
 import '../../../core/services/glb_cache.dart';
 import '../../../core/services/session_service.dart';
+import '../../../core/utils/model_storage.dart';
 
 sealed class TryOnState extends Equatable {
   const TryOnState();
@@ -260,15 +261,37 @@ class TryOnCubit extends Cubit<TryOnState> {
     );
   }
 
-  /// Downloads (or reuses) the mesh for this result.
+  /// The mesh to put on screen: the garment worn on a body, as one file.
   ///
-  /// `model_viewer_plus` renders a single `src`, so the garment GLB — which the
-  /// morph engine bakes onto the body — wins when both are present. If the
-  /// backend keeps them as separate meshes we need a merged GLB from them
-  /// rather than a second viewer (guide §11, open question).
+  /// `model_viewer_plus` renders a single `src`, and the backend keeps the body
+  /// and the garment as separate meshes — which is why this used to show the
+  /// garment hanging in empty space. [GlbCache.merged] composes them instead of
+  /// opening a second viewer (guide §11).
+  ///
+  /// Either half alone is still worth showing, so a missing or uncomposable
+  /// counterpart degrades to whichever mesh does exist.
   Future<String?> _resolveMesh(TryOnResult result) async {
-    final url = result.garmentGlbUrl ?? result.bodyGlbUrl;
-    if (url == null || url.isEmpty) return null;
-    return _glb.resolve(url);
+    final garmentUrl = result.garmentGlbUrl;
+    final garment =
+        garmentUrl == null || garmentUrl.isEmpty ? null : await _glb.resolve(garmentUrl);
+    final body = await _resolveBody(result.bodyGlbUrl);
+
+    if (garment == null) return body;
+    if (body == null) return garment;
+    return await _glb.merged(body, garment) ?? garment;
+  }
+
+  /// The body the garment is draped on.
+  ///
+  /// The morph engine's own body comes first when it returns one: it is posed
+  /// and scaled in the same space as the garment it just morphed, so the two
+  /// line up by construction. The user's scanned avatar is the fallback — it is
+  /// the same mesh the scan produced, which is what the engine morphs against.
+  Future<String?> _resolveBody(String? url) async {
+    if (url != null && url.isNotEmpty) {
+      final downloaded = await _glb.resolve(url);
+      if (downloaded != null) return downloaded;
+    }
+    return ModelStorage.resolve(_auth.currentUser?.measurements?.modelPath);
   }
 }
