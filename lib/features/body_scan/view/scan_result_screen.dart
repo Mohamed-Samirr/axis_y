@@ -37,14 +37,19 @@ class _ScanResultBody extends StatelessWidget {
   const _ScanResultBody({required this.input});
 
   Future<void> _confirm(BuildContext context) async {
+    final hasMesh = context.read<BodyScanCubit>().state.measurements?.modelPath != null;
     await context.read<BodyScanCubit>().confirmAndSave();
     if (!context.mounted) return;
     final hasPrefs = sl<LocalStore>().getJson(StoreKeys.preferences) != null;
-    if (hasPrefs) {
-      // Re-scan from profile: just go back.
-      context.go(Routes.profile);
+    // Re-scan from profile goes back there; a first scan still owes the
+    // preferences questionnaire.
+    final next = hasPrefs ? Routes.profile : Routes.preferences;
+    if (hasMesh) {
+      // Show the avatar the scan just produced, with a try-on CTA, before
+      // continuing. With no mesh there is nothing to show, so skip it.
+      context.go(Routes.avatar, extra: next);
     } else {
-      context.go(Routes.preferences);
+      context.go(next);
     }
   }
 

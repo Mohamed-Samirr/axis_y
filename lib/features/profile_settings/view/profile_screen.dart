@@ -105,6 +105,10 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          // Only when a mesh actually exists — the screen would otherwise open
+          // straight onto its "no model" state.
+          if (m?.modelPath != null)
+            _link(context, Icons.view_in_ar_outlined, context.tr('body_model_3d'), () => context.push(Routes.avatar)),
           _link(context, Icons.receipt_long_outlined, context.tr('my_orders'), () => context.push(Routes.orders)),
           _link(context, Icons.favorite_border, context.tr('wishlist'), () => context.go(Routes.wishlist)),
           _link(context, Icons.compare_arrows, context.tr('compare_title'), () => context.push(Routes.compare)),

@@ -11,10 +11,11 @@ abstract class AppConfig {
   /// Setting this to `false` restores the fully offline mock scan.
   static const bool useRealBodyScan = true;
 
-  /// Fit check + virtual try-on against the main API (`/api/v1`). Off until the
-  /// gateway is reachable — the mock repository serves the exact same
-  /// [FitResult] / [TryOnResult] shapes, so the UI is identical either way.
-  static const bool useRealTryOn = bool.fromEnvironment('AXIS_REAL_TRYON');
+  /// Fit check + virtual try-on against the main API (`/api/v1`), so the try-on
+  /// screen renders the real morphed GLB instead of the painted mannequin.
+  /// Setting this to `false` restores the offline mock, which serves the exact
+  /// same [FitResult] / [TryOnResult] shapes — the UI is identical either way.
+  static const bool useRealTryOn = true;
 
   /// The deployed backend, reachable from anywhere.
   ///

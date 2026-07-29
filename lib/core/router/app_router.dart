@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/view/login_screen.dart';
 import '../../features/auth/view/otp_screen.dart';
 import '../../features/auth/view/register_screen.dart';
+import '../../features/avatar/view/avatar_screen.dart';
 import '../../features/body_scan/models/scan_input.dart';
 import '../../features/body_scan/view/manual_measurements_screen.dart';
 import '../../features/body_scan/view/scan_camera_screen.dart';
@@ -64,6 +65,13 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: Routes.scanManual,
       builder: (_, state) => ManualMeasurementsScreen(initialHeightCm: state.extra as double?),
+    ),
+    // `extra` is the route to continue to after the avatar, set by the scan
+    // flow. Absent when opened from the profile, which just pops back.
+    GoRoute(
+      path: Routes.avatar,
+      parentNavigatorKey: _rootKey,
+      builder: (_, state) => AvatarScreen(nextRoute: state.extra as String?),
     ),
     GoRoute(path: Routes.preferences, builder: (_, __) => const PreferencesScreen()),
 
