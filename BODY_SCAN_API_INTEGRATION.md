@@ -80,6 +80,31 @@ the overlay shows the landmark line running out to the hands. Arms should hang s
 away from the body in an A-pose, with the whole body from head to heels inside the frame.
 That guidance is on the intro screen as `scan_pose_tip` and repeats under the frames.
 
+### EXIF orientation — the sideways-body bug
+
+The first thing the annotated frames caught: a body lying **horizontally** in both frames,
+with chest 490cm, waist 457cm, hips 455cm and inseam 4.4cm.
+
+`CameraController.takePicture()` on Android saves the sensor buffer unrotated — a portrait
+shot becomes a landscape JPEG plus an EXIF `Orientation: 6` ("rotate 90°") tag. Flutter's
+decoder and every gallery app honour that tag, so the photo looks upright *on the phone*,
+while the pipeline reads raw pixels and sees a person on their side.
+
+A 90° rotation preserves distances, so this is not obviously fatal — but the width
+extraction scans **horizontal rows** of the body mask, and on a sideways body a row at
+chest height runs down the body's length. That is why the girths all landed near the body
+length and the inseam collapsed to nothing.
+
+Fixed client-side in [image_orientation.dart](lib/core/utils/image_orientation.dart): the
+capture screen bakes the rotation into the pixels and drops the tag (`bakeOrientation`)
+before the file leaves the screen, for both camera shots and gallery picks. Rotating
+without clearing the tag would be worse than doing nothing — an EXIF-aware reader would
+then turn the image a second time.
+
+**Worth doing on the server too.** `PIL.ImageOps.exif_transpose(img)` right after opening
+each upload covers every client, including images that arrive from other apps. The client
+fix only covers this app's own capture path.
+
 **`POST /scan-3d` — 200 response:** raw bytes, `Content-Type: model/gltf-binary`,
 `Content-Disposition: attachment; filename=body_model.glb`. **No measurements are returned
 with it** — see §9, this needs a backend change.

@@ -46,6 +46,10 @@ dependencies:
   # 3D viewer for the scanned body mesh (.glb)
   model_viewer_plus: ^1.7.2
 
+  # Bakes EXIF rotation into captured photos before upload — the scan backend
+  # reads raw pixels and would otherwise measure a sideways body.
+  image: ^4.8.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

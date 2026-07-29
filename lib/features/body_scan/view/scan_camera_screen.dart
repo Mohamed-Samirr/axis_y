@@ -12,6 +12,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/image_orientation.dart';
 import '../models/scan_input.dart';
 
 /// Real capture of the two body photos, with the guide overlay drawn on top of
@@ -175,7 +176,7 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
       // Cubit deletes it once the scan finishes.
       final shot = await controller.takePicture();
       if (!mounted) return;
-      _accept([File(shot.path)]);
+      await _accept([File(shot.path)]);
     } on CameraException {
       if (mounted) {
         setState(() => _capturing = false);
@@ -200,7 +201,7 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
           ? await picker.pickMultiImage(limit: 2, maxWidth: 1080, maxHeight: 1920)
           : [?await picker.pickImage(source: ImageSource.gallery, maxWidth: 1080, maxHeight: 1920)];
       if (!mounted || picked.isEmpty) return;
-      _accept(picked.take(2).map((x) => File(x.path)).toList());
+      await _accept(picked.take(2).map((x) => File(x.path)).toList());
     } on PlatformException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('scan_gallery_failed'))));
@@ -210,7 +211,17 @@ class _ScanCameraScreenState extends State<ScanCameraScreen> {
 
   /// Consumes one or two images from the current step onwards, advancing the
   /// step or finishing the flow once both poses are in hand.
-  void _accept(List<File> files) {
+  Future<void> _accept(List<File> files) async {
+    if (!_capturing) setState(() => _capturing = true);
+    // Straighten the pixels before the file leaves this screen, so every
+    // consumer — the upload, the manual-entry preview — gets an upright image.
+    // The camera writes portrait shots as landscape + an EXIF rotate tag, and
+    // the backend reads raw pixels; see [bakeImageOrientation].
+    for (final file in files) {
+      await bakeImageOrientation(file);
+    }
+    if (!mounted) return;
+
     var front = _front;
     File? side;
     for (final file in files) {
