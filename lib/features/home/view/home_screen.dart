@@ -89,8 +89,13 @@ class _HomeContent extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           const SizedBox(height: 12),
-          _BannerSlider(banners: state.banners),
-          const SizedBox(height: 20),
+          // Banners are pure merchandising with no backend table behind them,
+          // so the real catalog returns none — don't reserve 160px for an
+          // empty carousel.
+          if (state.banners.isNotEmpty) ...[
+            BannerSlider(banners: state.banners),
+            const SizedBox(height: 20),
+          ],
           const _CategoriesRow(),
           const SizedBox(height: 20),
           _SectionHeader(title: context.tr('picked_for_you')),
@@ -135,15 +140,17 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _BannerSlider extends StatefulWidget {
+/// Public only so the empty/single-banner cases can be pumped directly in a
+/// test — an empty list used to divide by zero here.
+class BannerSlider extends StatefulWidget {
   final List<AppBanner> banners;
-  const _BannerSlider({required this.banners});
+  const BannerSlider({super.key, required this.banners});
 
   @override
-  State<_BannerSlider> createState() => _BannerSliderState();
+  State<BannerSlider> createState() => _BannerSliderState();
 }
 
-class _BannerSliderState extends State<_BannerSlider> {
+class _BannerSliderState extends State<BannerSlider> {
   final _controller = PageController();
   Timer? _timer;
   int _index = 0;
@@ -151,6 +158,10 @@ class _BannerSliderState extends State<_BannerSlider> {
   @override
   void initState() {
     super.initState();
+    // Nothing to rotate through with one banner, and with none the modulo
+    // below is a division by zero — which is exactly what an empty catalog
+    // response produced.
+    if (widget.banners.length < 2) return;
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!_controller.hasClients) return;
       _index = (_index + 1) % widget.banners.length;
