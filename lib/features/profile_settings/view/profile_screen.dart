@@ -110,7 +110,9 @@ class ProfileScreen extends StatelessWidget {
           if (m?.modelPath != null)
             _link(context, Icons.view_in_ar_outlined, context.tr('body_model_3d'), () => context.push(Routes.avatar)),
           _link(context, Icons.receipt_long_outlined, context.tr('my_orders'), () => context.push(Routes.orders)),
-          _link(context, Icons.favorite_border, context.tr('wishlist'), () => context.go(Routes.wishlist)),
+          // Pushed, not `go`: the wishlist is no longer a tab while the 3D model
+          // holds that slot, so it needs a back button out.
+          _link(context, Icons.favorite_border, context.tr('wishlist'), () => context.push(Routes.wishlist)),
           _link(context, Icons.compare_arrows, context.tr('compare_title'), () => context.push(Routes.compare)),
           _link(context, Icons.auto_awesome_outlined, context.tr('assistant'), () => context.push(Routes.assistant)),
           _link(context, Icons.location_on_outlined, context.tr('saved_addresses'), () => _snack(context, 'saved_addresses')),

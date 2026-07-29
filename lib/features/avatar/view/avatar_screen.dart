@@ -20,7 +20,7 @@ const _sceneBackground = Color(0xFF0E1526);
 /// /scan-3d` is the payoff for the scan, and the CTA hands the user straight to
 /// a garment to drape on it (guide §5.3 → §5.6). Reachable again later from the
 /// profile.
-class AvatarScreen extends StatefulWidget {
+class AvatarScreen extends StatelessWidget {
   /// Where "continue" goes once the user is done with the avatar — the step the
   /// scan flow would otherwise have gone to. Null when the screen is opened
   /// from the profile, where the back button is the way out.
@@ -29,19 +29,40 @@ class AvatarScreen extends StatefulWidget {
   const AvatarScreen({super.key, this.nextRoute});
 
   @override
-  State<AvatarScreen> createState() => _AvatarScreenState();
+  Widget build(BuildContext context) {
+    // Read on every build — it is an in-memory lookup — but key the body on the
+    // mesh path. As a bottom-nav tab this widget is kept alive across tab
+    // switches, so resolving once and never again would leave a stale avatar on
+    // screen after a re-scan. A changed path swaps the state (and the webview);
+    // an unchanged one leaves both completely untouched.
+    final measurements = sl<AuthRepository>().currentUser?.measurements;
+    return _AvatarBody(
+      key: ValueKey(measurements?.modelPath),
+      measurements: measurements,
+      nextRoute: nextRoute,
+    );
+  }
 }
 
-class _AvatarScreenState extends State<AvatarScreen> {
-  /// Resolved once, not in `build`: rebuilding the future would tear the
-  /// webview down and re-load a multi-megabyte mesh on every repaint.
+class _AvatarBody extends StatefulWidget {
+  final Measurements? measurements;
+  final String? nextRoute;
+
+  const _AvatarBody({super.key, required this.measurements, required this.nextRoute});
+
+  @override
+  State<_AvatarBody> createState() => _AvatarBodyState();
+}
+
+class _AvatarBodyState extends State<_AvatarBody> {
+  /// Resolved once per mesh, not in `build`: rebuilding the future would tear
+  /// the webview down and re-load a multi-megabyte mesh on every repaint.
   late final Future<String?> _meshPath;
-  late final Measurements? _measurements;
+  Measurements? get _measurements => widget.measurements;
 
   @override
   void initState() {
     super.initState();
-    _measurements = sl<AuthRepository>().currentUser?.measurements;
     _meshPath = ModelStorage.resolve(_measurements?.modelPath);
   }
 

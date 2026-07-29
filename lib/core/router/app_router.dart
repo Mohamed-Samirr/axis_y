@@ -107,6 +107,9 @@ final GoRouter appRouter = GoRouter(
     // The style assistant used to *be* the try-on tab; now that the tab hosts
     // the 3D viewer, it lives here as a pushed page reached from the profile.
     GoRoute(path: Routes.assistant, parentNavigatorKey: _rootKey, builder: (_, __) => const AssistantScreen()),
+    // Same story for the wishlist while the 3D model borrows its tab slot: it
+    // keeps working, just as a pushed page off the profile rather than a tab.
+    GoRoute(path: Routes.wishlist, parentNavigatorKey: _rootKey, builder: (_, __) => const WishlistScreen()),
     GoRoute(path: Routes.loyalty, parentNavigatorKey: _rootKey, builder: (_, __) => const LoyaltyScreen()),
     GoRoute(path: Routes.settings, parentNavigatorKey: _rootKey, builder: (_, __) => const SettingsScreen()),
     GoRoute(path: Routes.notifications, parentNavigatorKey: _rootKey, builder: (_, __) => const NotificationsScreen()),
@@ -132,7 +135,11 @@ final GoRouter appRouter = GoRouter(
           routes: [GoRoute(path: Routes.tryonTab, builder: (_, __) => const TryOnTabScreen())],
         ),
         StatefulShellBranch(
-          routes: [GoRoute(path: Routes.wishlist, builder: (_, __) => const WishlistScreen())],
+          // TEMPORARY: the wishlist tab shows the scanned 3D body model instead,
+          // so the mesh is one tap away while it is being worked on. Swap the
+          // builder back to WishlistScreen (and the path to Routes.wishlist) to
+          // restore it — the wishlist itself still lives at /wishlist below.
+          routes: [GoRoute(path: Routes.avatarTab, builder: (_, __) => const AvatarScreen())],
         ),
         StatefulShellBranch(
           routes: [GoRoute(path: Routes.profile, builder: (_, __) => const ProfileScreen())],

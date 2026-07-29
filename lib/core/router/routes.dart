@@ -16,6 +16,11 @@ abstract class Routes {
   static const home = '/home';
   static const explore = '/explore';
   static const tryonTab = '/tryon';
+
+  /// TEMPORARY: this slot is the wishlist tab's. It hosts the scanned 3D body
+  /// model for now — see the branch in `app_router.dart`. Put [wishlist] back in
+  /// the branch and drop this to revert.
+  static const avatarTab = '/avatar-tab';
   static const wishlist = '/wishlist';
   static const profile = '/profile';
 
