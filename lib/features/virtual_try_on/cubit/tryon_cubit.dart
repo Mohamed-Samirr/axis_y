@@ -210,23 +210,36 @@ class TryOnCubit extends Cubit<TryOnState> {
         // The backend may hand back a different size than requested when
         // auto-selection is on; the UI follows whatever it decided.
         final label = data.fitResult.sizeLabel ?? size;
-        final mesh = await _resolveMesh(data);
         _bySize[label] = data;
-        _meshBySize[label] = mesh;
 
-        final current = state;
-        if (current is! TryOnReady) return;
+        final afterFit = state;
+        if (afterFit is! TryOnReady) return;
         // A newer toggle may have landed while this was in flight; only the
         // size still on screen may repaint.
-        if (current.size != size && current.size != label) return;
-        _safeEmit(current.copyWith(
+        if (afterFit.size != size && afterFit.size != label) return;
+
+        // Verdict first, mesh second. The verdict is what the user is waiting
+        // for and it arrives with the response; the mesh is megabytes behind
+        // it. Holding the veil up for the whole download is what made a slow
+        // mesh look like the screen had frozen. The painted mannequin covers
+        // the gap — a missing mesh is never a failure state.
+        _safeEmit(afterFit.copyWith(
           size: label,
           fit: data.fitResult,
-          meshPath: mesh,
-          clearMesh: mesh == null,
+          meshPath: _meshBySize[label],
+          clearMesh: _meshBySize[label] == null,
           morphing: false,
           clearError: true,
         ));
+
+        final mesh = await _resolveMesh(data);
+        _meshBySize[label] = mesh;
+        if (mesh == null) return;
+        final afterMesh = state;
+        // The user may have toggled again during the download; the mesh is
+        // cached under its own size either way, so just drop this repaint.
+        if (afterMesh is! TryOnReady || afterMesh.size != label) return;
+        _safeEmit(afterMesh.copyWith(meshPath: mesh));
       },
       failure: (key) async {
         // 404 = the stored scan no longer exists server-side (guide §12).

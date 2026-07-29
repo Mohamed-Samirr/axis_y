@@ -75,16 +75,24 @@ class ApiTryOnRepository implements TryOnRepository {
     bool autoSelectSize = false,
   }) async {
     try {
+      // `TryOnRequest` has no `size_label` field: a specific size is requested
+      // by its `product_variant_id`, and `product_id` + auto_select_size is the
+      // "you pick" path. Sending size_label instead — as this did — is silently
+      // dropped by the server, so every toggle came back auto-selected.
+      final variantId = product.sizes
+          .where((s) => s.label == sizeLabel)
+          .map((s) => s.variantId)
+          .firstOrNull;
+      // With no variant id there is nothing to pin the size to, so fall back to
+      // letting the backend choose rather than lying about which size this is.
+      final pinSize = !autoSelectSize && variantId != null;
+
       final res = await _api.dio.post<Map<String, dynamic>>(
         '${AppConfig.mainApiPrefix}/try-on',
         data: <String, dynamic>{
           'scan_id': scanId,
-          // The catalog does not expose per-size variant ids yet, so the
-          // product + size pair identifies the variant. Swap in
-          // `product_variant_id` once `GET /products` returns real ones.
-          'product_id': product.id,
-          'size_label': sizeLabel,
-          'auto_select_size': autoSelectSize,
+          if (pinSize) 'product_variant_id': variantId else 'product_id': product.id,
+          'auto_select_size': !pinSize,
         },
         options: tryOnOptions(),
       );

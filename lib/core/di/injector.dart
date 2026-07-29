@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../config/app_config.dart';
 import '../data/local_store.dart';
 import '../network/api_client.dart';
+import '../repositories/api_catalog_repository.dart';
 import '../repositories/assistant_repository.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/body_scan_repository.dart';
@@ -40,8 +41,14 @@ Future<void> setupInjector() async {
     () => AppConfig.useRealTryOn ? ApiTryOnRepository(sl()) : MockTryOnRepository(sl()),
   );
 
+  // The catalog opts out of the global mock flag the same way the scan and
+  // try-on repositories do: try-on is only meaningful against products the
+  // backend actually knows.
+  sl.registerLazySingleton<CatalogRepository>(
+    () => AppConfig.useRealCatalog ? ApiCatalogRepository(sl()) : MockCatalogRepository(),
+  );
+
   if (AppConfig.useMockData) {
-    sl.registerLazySingleton<CatalogRepository>(() => MockCatalogRepository());
     sl.registerLazySingleton<AuthRepository>(() => MockAuthRepository(sl()));
     sl.registerLazySingleton<CartRepository>(() => LocalCartRepository(sl()));
     sl.registerLazySingleton<WishlistRepository>(() => LocalWishlistRepository(sl()));

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../config/app_config.dart';
+
 /// On-disk cache for try-on `.glb` meshes (guide §13).
 ///
 /// Try-on GLBs are 1–5MB and the same body/garment pair is re-requested every
@@ -16,9 +18,22 @@ class GlbCache {
   /// GLBs are large; keep the directory bounded. Oldest files go first.
   static const int maxFiles = 12;
 
+  /// A GLB is 1–5MB over mobile data, so this is far longer than the JSON
+  /// timeouts — but it must exist. A bare `Dio()` has **no** timeouts at all,
+  /// and a mesh URL pointing at a host the phone cannot reach then stalls
+  /// forever. The try-on Cubit awaits this download before clearing its
+  /// `morphing` flag, so "no timeout" surfaced as the screen hanging on the
+  /// spinner with no error and no way back.
+  static const Duration downloadTimeout = Duration(seconds: 60);
+
   final Dio _dio;
 
-  GlbCache([Dio? dio]) : _dio = dio ?? Dio();
+  GlbCache([Dio? dio])
+      : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: AppConfig.connectTimeout,
+              receiveTimeout: downloadTimeout,
+            ));
 
   Future<Directory> _dir() async {
     final base = await getTemporaryDirectory();
@@ -39,7 +54,10 @@ class GlbCache {
       // Download to a temp name first so an interrupted transfer can never be
       // mistaken for a complete cache entry.
       final part = File('${file.path}.part');
-      await _dio.download(url, part.path);
+      // Dio's receiveTimeout only measures the gap *between* chunks, so a
+      // server trickling bytes could still hold this open indefinitely. The
+      // wall-clock deadline is what actually bounds the wait.
+      await _dio.download(url, part.path).timeout(downloadTimeout);
       if (!await part.exists() || await part.length() == 0) return null;
       await part.rename(file.path);
       await _evict(dir);

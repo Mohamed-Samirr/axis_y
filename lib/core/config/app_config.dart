@@ -13,6 +13,15 @@ abstract class AppConfig {
   /// Setting this to `false` restores the fully offline mock scan.
   static const bool useRealBodyScan = true;
 
+  /// Products, stores and search come from the real product database
+  /// (`GET /api/v1/products`) instead of [MockSeed].
+  ///
+  /// Try-on needs this: `/try-on` and `/fit-check` key on the backend's own
+  /// product and variant UUIDs, which a seeded mock product does not have.
+  /// Setting it to `false` restores the offline catalog — and with it a try-on
+  /// that the gateway will reject.
+  static const bool useRealCatalog = true;
+
   /// Fit check + virtual try-on against the main API (`/api/v1`), so the try-on
   /// screen renders the real morphed GLB instead of the painted mannequin.
   /// Setting this to `false` restores the offline mock, which serves the exact

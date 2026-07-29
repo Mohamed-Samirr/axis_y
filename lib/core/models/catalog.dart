@@ -37,16 +37,22 @@ class ProductSize extends Equatable {
   final int length;
   final bool available;
 
+  /// Backend `product_variant_id` for this size. `POST /try-on` selects a size
+  /// by variant id — `size_label` is not part of its request body — so without
+  /// this the API can only ever auto-select. Null for mock/seeded products.
+  final String? variantId;
+
   const ProductSize({
     required this.label,
     required this.chest,
     required this.waist,
     required this.length,
     this.available = true,
+    this.variantId,
   });
 
   @override
-  List<Object?> get props => [label, chest, waist, length, available];
+  List<Object?> get props => [label, chest, waist, length, available, variantId];
 }
 
 class Review extends Equatable {

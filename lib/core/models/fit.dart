@@ -177,9 +177,13 @@ class TryOnResult extends Equatable {
         tryonId: json['tryon_id'] as String? ?? '',
         bodyGlbUrl: json['body_glb_url'] as String?,
         garmentGlbUrl: json['garment_glb_url'] as String?,
+        // Which size the server settled on is a *sibling* of `fit_result`, not
+        // a field inside it — the fit object has no size at all. Folding it in
+        // here is what makes auto-selection visible to the UI, which reads the
+        // size back off the verdict.
         fitResult: FitResult.fromApi(
           (json['fit_result'] as Map<String, dynamic>?) ?? const {},
-        ),
+        ).withSize(json['selected_size_label'] as String?),
       );
 
   @override
