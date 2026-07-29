@@ -19,24 +19,32 @@ class ScanIntroScreen extends StatefulWidget {
 class _ScanIntroScreenState extends State<ScanIntroScreen> {
   final _formKey = GlobalKey<FormState>();
   final _height = TextEditingController();
+  final _weight = TextEditingController();
 
   @override
   void dispose() {
     _height.dispose();
+    _weight.dispose();
     super.dispose();
   }
+
+  double? get _weightKg => double.tryParse(_weight.text.trim());
 
   void _start() {
     if (!_formKey.currentState!.validate()) return;
     final heightCm = double.parse(_height.text.trim());
-    context.push(Routes.scanCamera, extra: ScanInput(heightCm: heightCm));
+    context.push(Routes.scanCamera, extra: ScanInput(heightCm: heightCm, weightKg: _weightKg));
   }
 
   /// Bypasses the camera + AI pipeline entirely: the user types their own
-  /// measurements on the next screen instead of being scanned.
+  /// measurements on the next screen instead of being scanned. Whatever was
+  /// already typed here is carried over so it isn't asked for twice.
   void _skipToManual() {
     final heightCm = double.tryParse(_height.text.trim());
-    context.push(Routes.scanManual, extra: heightCm);
+    context.push(
+      Routes.scanManual,
+      extra: heightCm == null ? null : ScanInput(heightCm: heightCm, weightKg: _weightKg),
+    );
   }
 
   /// Validated client-side so the user gets an instant error instead of a
@@ -44,6 +52,15 @@ class _ScanIntroScreenState extends State<ScanIntroScreen> {
   String? _validateHeight(String? value) {
     final h = double.tryParse((value ?? '').trim());
     if (h == null || h < 100 || h > 250) return context.tr('height_invalid');
+    return null;
+  }
+
+  /// Optional field: empty passes, but a typed value still has to be sane.
+  String? _validateWeight(String? value) {
+    final trimmed = (value ?? '').trim();
+    if (trimmed.isEmpty) return null;
+    final w = double.tryParse(trimmed);
+    if (w == null || w < 30 || w > 300) return context.tr('weight_invalid');
     return null;
   }
 
@@ -81,6 +98,20 @@ class _ScanIntroScreenState extends State<ScanIntroScreen> {
                 prefixIcon: const Icon(Icons.height),
               ),
               validator: _validateHeight,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _weight,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                labelText: '${context.tr('enter_weight')} (${context.tr('optional_field')})',
+                suffixText: context.tr('kg'),
+                prefixIcon: const Icon(Icons.monitor_weight_outlined),
+              ),
+              validator: _validateWeight,
             ),
             const SizedBox(height: 20),
             Container(

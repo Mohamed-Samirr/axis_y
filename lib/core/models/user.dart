@@ -79,12 +79,12 @@ class Measurements extends Equatable {
     return 'XXL';
   }
 
-  Measurements copyWith({String? modelPath}) => Measurements(
+  Measurements copyWith({String? modelPath, int? weight}) => Measurements(
         chest: chest,
         waist: waist,
         hips: hips,
         height: height,
-        weight: weight,
+        weight: weight ?? this.weight,
         shoulderCm: shoulderCm,
         inseamCm: inseamCm,
         confidence: confidence,

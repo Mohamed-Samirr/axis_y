@@ -22,7 +22,8 @@ import '../models/scan_input.dart';
 /// the app never sends or persists body photos to a server).
 class ManualMeasurementsScreen extends StatefulWidget {
   final double? initialHeightCm;
-  const ManualMeasurementsScreen({super.key, this.initialHeightCm});
+  final double? initialWeightKg;
+  const ManualMeasurementsScreen({super.key, this.initialHeightCm, this.initialWeightKg});
 
   @override
   State<ManualMeasurementsScreen> createState() => _ManualMeasurementsScreenState();
@@ -31,7 +32,7 @@ class ManualMeasurementsScreen extends StatefulWidget {
 class _ManualMeasurementsScreenState extends State<ManualMeasurementsScreen> {
   final _formKey = GlobalKey<FormState>();
   late final _height = TextEditingController(text: widget.initialHeightCm?.toStringAsFixed(0) ?? '');
-  final _weight = TextEditingController();
+  late final _weight = TextEditingController(text: widget.initialWeightKg?.toStringAsFixed(0) ?? '');
   final _chest = TextEditingController();
   final _waist = TextEditingController();
   final _hips = TextEditingController();

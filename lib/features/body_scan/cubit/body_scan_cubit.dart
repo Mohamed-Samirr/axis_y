@@ -60,7 +60,10 @@ class BodyScanCubit extends Cubit<BodyScanState> {
         heightCm: input.heightCm,
       );
       await result.when(
-        success: (m) async {
+        success: (raw) async {
+          // The API only ever *estimates* weight from the photos — if the user
+          // told us theirs on the intro screen, that is the better number.
+          final m = input.weightKg == null ? raw : raw.copyWith(weight: input.weightKg!.round());
           _safeEmit(BodyScanState(status: ScanStatus.buildingModel, measurements: m));
           final model = await _repo.generateModel(
             frontImage: front,

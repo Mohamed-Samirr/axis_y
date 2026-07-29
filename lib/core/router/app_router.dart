@@ -62,9 +62,17 @@ final GoRouter appRouter = GoRouter(
       redirect: (_, state) => state.extra is ScanInput ? null : Routes.scanIntro,
       builder: (_, state) => ScanResultScreen(input: state.extra as ScanInput),
     ),
+    // `extra` carries whatever the intro screen already collected, if the user
+    // got here by skipping the scan. Null on a deep link or a direct entry.
     GoRoute(
       path: Routes.scanManual,
-      builder: (_, state) => ManualMeasurementsScreen(initialHeightCm: state.extra as double?),
+      builder: (_, state) {
+        final input = state.extra as ScanInput?;
+        return ManualMeasurementsScreen(
+          initialHeightCm: input?.heightCm,
+          initialWeightKg: input?.weightKg,
+        );
+      },
     ),
     // `extra` is the route to continue to after the avatar, set by the scan
     // flow. Absent when opened from the profile, which just pops back.
